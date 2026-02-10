@@ -1,11 +1,15 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { ZoneDefinition, ZONES, getZone, getZoneIndex } from './zones';
 import { Upgrades, UpgradeDefinition, UPGRADE_DEFS, getUpgradeCost } from './data/upgrades';
+import { OrbitalUpgradeDefinition, ORBITAL_UPGRADE_DEFS, getOrbitalUpgradeCost } from './data/orbitalUpgrades';
+import { OrbitalCommand } from './components/OrbitalCommand';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 interface City {
   x: number;
   alive: boolean;
+  hp: number;
+  maxHp: number;
 }
 
 interface MissileBattery {
@@ -154,6 +158,7 @@ const BUILDING_DEFS: Building[] = [
 ];
 
 interface GameState {
+  // ... (existing fields)
   credits: number; // Replaces score as currency
   score: number;
   cps: number;
@@ -168,7 +173,7 @@ interface GameState {
   bombers: Bomber[];
   asteroids: Asteroid[];
   gameOver: boolean;
-  phase: 'title' | 'playing' | 'shop' | 'gameover' | 'zone_intro' | 'prestige_shop' | 'level_complete';
+  phase: 'title' | 'playing' | 'shop' | 'gameover' | 'zone_intro' | 'orbital_command' | 'level_complete'; // Added 'orbital_command'
   levelComplete: boolean;
   levelTransitionTimer: number;
   missileSpawnTimer: number;
@@ -217,14 +222,8 @@ interface GameState {
 }
 
 // ─── Progression System ─────────────────────────────────────────────────
-interface PrestigeBonuses {
-  startingScore: number;   // +500 per level, max 5
-  bonusAmmo: number;       // +2 ammo per level, max 3
-  toughCities: number;     // +1 hit per level, max 2
-  headStart: number;       // start at level 2, max 1
-  luckyStart: number;      // start with lucky strike 1, max 1
-}
 
+// Replaces PrestigeBonuses
 interface PersistentStats {
   totalGames: number;
   totalScore: number;
@@ -236,8 +235,8 @@ interface PersistentStats {
   bestCombo: number;
   totalCitiesSaved: number;
   prestigeLevel: number;
-  prestigePoints: number;
-  prestigeBonuses: PrestigeBonuses;
+  commandCredits: number; // Renamed from prestigePoints
+  orbitalUpgrades: Record<string, number>; // New tech tree
   achievements: string[];
 }
 
@@ -301,35 +300,19 @@ const ACHIEVEMENT_DEFS: AchievementDef[] = [
   },
 ];
 
-interface PrestigeUpgradeDef {
-  key: keyof PrestigeBonuses;
-  name: string;
-  description: string;
-  cost: number;
-  maxLevel: number;
-  icon: string;
-}
-
-const PRESTIGE_UPGRADE_DEFS: PrestigeUpgradeDef[] = [
-  { key: 'startingScore', name: 'Seed Fund', description: '+500 starting score', cost: 3, maxLevel: 5, icon: '💰' },
-  { key: 'bonusAmmo', name: 'Ammo Depot', description: '+2 starting ammo', cost: 2, maxLevel: 3, icon: '🎯' },
-  { key: 'toughCities', name: 'Reinforced', description: 'Cities take +1 hit', cost: 5, maxLevel: 2, icon: '🏗️' },
-  { key: 'headStart', name: 'Veteran', description: 'Start at Level 2', cost: 4, maxLevel: 1, icon: '🚀' },
-  { key: 'luckyStart', name: 'Born Lucky', description: 'Start with Lucky Strike', cost: 3, maxLevel: 1, icon: '🍀' },
-];
+// Removed PrestigeUpgradeDef and PRESTIGE_UPGRADE_DEFS
 
 const STATS_KEY = 'missileDefendStats';
 
-function initPrestigeBonuses(): PrestigeBonuses {
-  return { startingScore: 0, bonusAmmo: 0, toughCities: 0, headStart: 0, luckyStart: 0 };
-}
-
 function initPersistentStats(): PersistentStats {
+  const orbitalUpgrades: Record<string, number> = {};
+  ORBITAL_UPGRADE_DEFS.forEach(def => orbitalUpgrades[def.id] = 0);
+
   return {
     totalGames: 0, totalScore: 0, highScore: 0, highestLevel: 0,
     highestZone: 0, totalMissilesDestroyed: 0, totalBossesDefeated: 0,
-    bestCombo: 0, totalCitiesSaved: 0, prestigeLevel: 0, prestigePoints: 0,
-    prestigeBonuses: initPrestigeBonuses(), achievements: [],
+    bestCombo: 0, totalCitiesSaved: 0, prestigeLevel: 0, commandCredits: 0,
+    orbitalUpgrades, achievements: [],
   };
 }
 
@@ -337,8 +320,52 @@ function loadStats(): PersistentStats {
   try {
     const raw = localStorage.getItem(STATS_KEY);
     if (!raw) return initPersistentStats();
+
     const parsed = JSON.parse(raw);
-    return { ...initPersistentStats(), ...parsed, prestigeBonuses: { ...initPrestigeBonuses(), ...(parsed.prestigeBonuses || {}) } };
+
+    // MIGRATION: Convert old prestigePoints/Bonuses to commandCredits/OrbitalUpgrades
+    if (parsed.prestigePoints !== undefined && parsed.commandCredits === undefined) {
+      let migratedCredits = parsed.prestigePoints || 0;
+
+      // Refund spent upgrades if they exist in the old format
+      if (parsed.prestigeBonuses) {
+        // Refund logic based on old costs (approximate or exact if known)
+        // Simplified: Refund fixed amount per level of old upgrades
+        // startingScore (cost 3), bonusAmmo (cost 2), toughCities (cost 5), headStart (cost 4), luckyStart (cost 3)
+        const old = parsed.prestigeBonuses;
+        migratedCredits += (old.startingScore || 0) * 3;
+        migratedCredits += (old.bonusAmmo || 0) * 2;
+        migratedCredits += (old.toughCities || 0) * 5;
+        migratedCredits += (old.headStart || 0) * 4;
+        migratedCredits += (old.luckyStart || 0) * 3;
+      }
+
+      const newStats = initPersistentStats();
+      return {
+        ...newStats,
+        ...parsed,
+        commandCredits: migratedCredits,
+        orbitalUpgrades: newStats.orbitalUpgrades, // Reset upgrades to default (since we refunded)
+        // Keep other stats
+        totalGames: parsed.totalGames || 0,
+        totalScore: parsed.totalScore || 0,
+        highScore: parsed.highScore || 0,
+        highestLevel: parsed.highestLevel || 0,
+        highestZone: parsed.highestZone || 0,
+        totalMissilesDestroyed: parsed.totalMissilesDestroyed || 0,
+        totalBossesDefeated: parsed.totalBossesDefeated || 0,
+        bestCombo: parsed.bestCombo || 0,
+        totalCitiesSaved: parsed.totalCitiesSaved || 0,
+        prestigeLevel: parsed.prestigeLevel || 0,
+        achievements: parsed.achievements || [],
+      };
+    }
+
+    // Ensure all orbital upgrades exist (in case we add more later)
+    const defaults = initPersistentStats();
+    const finalUpgrades = { ...defaults.orbitalUpgrades, ...(parsed.orbitalUpgrades || {}) };
+
+    return { ...defaults, ...parsed, orbitalUpgrades: finalUpgrades };
   } catch { return initPersistentStats(); }
 }
 
@@ -356,8 +383,8 @@ function checkAchievements(state: GameState, stats: PersistentStats): string[] {
   return newlyUnlocked;
 }
 
-function calcPrestigePoints(state: GameState): number {
-  return Math.floor(state.score / 1000) + state.level * 2;
+function calcCommandCredits(state: GameState): number {
+  return Math.floor(state.score / 1000) + Math.floor(state.level / 2);
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────
@@ -391,9 +418,9 @@ function initStars(count: number): { x: number; y: number; brightness: number; s
   return stars;
 }
 
-function initCities(): City[] {
+function initCities(hp: number = 1): City[] {
   const positions = [120, 200, 280, 600, 680, 760];
-  return positions.map((x) => ({ x, alive: true }));
+  return positions.map((x) => ({ x, alive: true, hp, maxHp: hp }));
 }
 
 function initBatteries(): MissileBattery[] {
@@ -430,12 +457,25 @@ function initSpecialWeapons(upgrades: Upgrades): SpecialWeapon[] {
   ];
 }
 
-function initGameState(prestige?: PrestigeBonuses): GameState {
+function initGameState(orbitalUpgrades: Record<string, number> = {}): GameState {
   const upgrades = initUpgrades();
-  const startLevel = (prestige && prestige.headStart > 0) ? 2 : 1;
-  if (prestige && prestige.luckyStart > 0) upgrades.luckyStrike = Math.max(upgrades.luckyStrike, 1);
-  const bonusAmmo = prestige ? prestige.bonusAmmo * 2 : 0;
-  const maxAmmo = BASE_AMMO + bonusAmmo;
+  const startLevel = 1; // Removed headStart for now
+
+  // Apply Orbital Upgrades
+  const siloLevel = orbitalUpgrades['silo_expansion'] || 0;
+  const maxAmmo = BASE_AMMO + siloLevel * 2;
+
+  const bunkerLevel = orbitalUpgrades['bunker_tech'] || 0;
+  const cityHp = 1 + bunkerLevel;
+
+  const salvageLevel = orbitalUpgrades['auto_salvage'] || 0;
+  // Note: credit multiplier is applied in updateGame
+
+  const rapidRearmLevel = orbitalUpgrades['rapid_rearm'] || 0;
+  // Note: cooldown reduction applied in updateGame/specialWeapons
+
+  const aegisLevel = orbitalUpgrades['aegis_overclock'] || 0;
+  // Note: shield recharge applied in updateGame
 
   // Initialize buildings
   const buildings: Record<string, number> = {};
@@ -443,11 +483,11 @@ function initGameState(prestige?: PrestigeBonuses): GameState {
 
   return {
     credits: 0,
-    score: prestige ? prestige.startingScore * 500 : 0,
+    score: 0,
     cps: 0,
     buildings,
     level: startLevel,
-    cities: initCities(),
+    cities: initCities(cityHp),
     batteries: initBatteries().map(b => ({ ...b, ammo: maxAmmo, maxAmmo })),
     incomingMissiles: [],
     counterMissiles: [],
@@ -1677,10 +1717,7 @@ function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: Persi
     return;
   }
 
-  if (state.phase === 'prestige_shop' && stats) {
-    drawPrestigeShop(ctx, stats);
-    return;
-  }
+
 
   if (state.phase === 'zone_intro') {
     drawZoneIntro(ctx, state);
@@ -2538,113 +2575,9 @@ function drawLevelComplete(ctx: CanvasRenderingContext2D, state: GameState) {
   }
 }
 
-function getPrestigeButtonRect(colX: number, colW: number, y: number) {
-  const btnW = 80;
-  const btnH = 30;
-  return {
-    x: colX + colW - btnW - 15,
-    y: y + 20,
-    w: btnW,
-    h: btnH,
-  };
-}
 
-function drawPrestigeShop(ctx: CanvasRenderingContext2D, stats: PersistentStats) {
-  // Background
-  const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-  grad.addColorStop(0, '#1a0a2e');
-  grad.addColorStop(1, '#000000');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  // Grid
-  ctx.strokeStyle = 'rgba(255, 170, 68, 0.1)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < CANVAS_WIDTH; i += 40) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke();
-  }
-  for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
-    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke();
-  }
 
-  // Header
-  ctx.fillStyle = '#ffaa44';
-  ctx.font = 'bold 36px monospace';
-  ctx.textAlign = 'center';
-  ctx.shadowColor = '#ffaa44';
-  ctx.shadowBlur = 15;
-  ctx.fillText('⭐ PRESTIGE SHOP ⭐', CANVAS_WIDTH / 2, 50);
-  ctx.shadowBlur = 0;
-
-  ctx.font = '18px monospace';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(`Prestige Level: ${stats.prestigeLevel}  •  Points Available: ${stats.prestigePoints}`, CANVAS_WIDTH / 2, 85);
-
-  // Upgrades
-  const startY = 130;
-  const colW = 400;
-  const rowH = 70;
-  const col1X = CANVAS_WIDTH / 2 - colW / 2;
-
-  PRESTIGE_UPGRADE_DEFS.forEach((def, i) => {
-    const y = startY + i * (rowH + 10);
-    const currentLevel = stats.prestigeBonuses[def.key];
-    const maxed = currentLevel >= def.maxLevel;
-    const canAfford = stats.prestigePoints >= def.cost;
-
-    // Card bg
-    ctx.fillStyle = maxed ? 'rgba(100, 255, 100, 0.1)' : 'rgba(255, 170, 68, 0.1)';
-    ctx.fillRect(col1X, y, colW, rowH);
-    ctx.strokeStyle = maxed ? '#44ff88' : '#ffaa44';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(col1X, y, colW, rowH);
-
-    // Icon & Name
-    ctx.textAlign = 'left';
-    ctx.font = '24px monospace';
-    ctx.fillText(def.icon, col1X + 15, y + 42);
-
-    ctx.fillStyle = maxed ? '#44ff88' : '#ffaa44';
-    ctx.font = 'bold 16px monospace';
-    ctx.fillText(`${def.name} (${currentLevel}/${def.maxLevel})`, col1X + 55, y + 25);
-
-    ctx.fillStyle = '#aaaaaa';
-    ctx.font = '12px monospace';
-    ctx.fillText(def.description, col1X + 55, y + 50);
-
-    // Cost / Buy Button
-    if (maxed) {
-      ctx.fillStyle = '#44ff88';
-      ctx.font = 'bold 14px monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText('MAXED', col1X + colW - 20, y + 40);
-    } else {
-      const { x: btnX, y: btnY, w: btnW, h: btnH } = getPrestigeButtonRect(col1X, colW, y);
-
-      ctx.fillStyle = canAfford ? '#ffaa44' : '#555555';
-      ctx.fillRect(btnX, btnY, btnW, btnH);
-      ctx.fillStyle = canAfford ? '#000000' : '#888888';
-      ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${def.cost} pts`, btnX + btnW / 2, btnY + 19);
-    }
-  });
-
-  // Back Button
-  const backY = CANVAS_HEIGHT - 60;
-  const backW = 200;
-  const backH = 40;
-  const backX = CANVAS_WIDTH / 2 - backW / 2;
-
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-  ctx.fillRect(backX, backY, backW, backH);
-  ctx.strokeStyle = '#ffffff';
-  ctx.strokeRect(backX, backY, backW, backH);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 16px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('BACK TO TITLE', CANVAS_WIDTH / 2, backY + 26);
-}
 
 function drawGameOver(ctx: CanvasRenderingContext2D, state: GameState, stats?: PersistentStats) {
   ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -3198,10 +3131,30 @@ function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState, stats?
   ctx.shadowColor = '#ff0000';
   ctx.shadowBlur = 20;
   ctx.fillText('MISSILE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
-  ctx.fillStyle = '#44aaff';
   ctx.shadowColor = '#4488ff';
   ctx.fillText('COMMAND', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 45);
   ctx.shadowBlur = 0;
+
+  // Orbital Command Button
+  if (stats && (stats.commandCredits > 0 || stats.prestigeLevel > 0)) {
+    const sY = CANVAS_HEIGHT / 2 + 85 + 25;
+    const btnW = 160;
+    const btnH = 30;
+    const btnX = (CANVAS_WIDTH - btnW) / 2;
+
+    ctx.fillStyle = '#222244';
+    ctx.fillRect(btnX, sY, btnW, btnH);
+    ctx.strokeStyle = '#44aaff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(btnX, sY, btnW, btnH);
+
+    ctx.fillStyle = '#44aaff';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('ORBITAL COMMAND', btnX + btnW / 2, sY + 20);
+  }
+
+  // Zone subtitle
 
   // Zone subtitle
   ctx.fillStyle = '#ffaa44';
@@ -3672,6 +3625,33 @@ export function App() {
   const [saveStatus, setSaveStatus] = useState('');
   const [showSaveMenu, setShowSaveMenu] = useState(false);
 
+  const buyOrbitalUpgrade = (def: OrbitalUpgradeDefinition) => {
+    const stats = statsRef.current;
+    const currentLevel = stats.orbitalUpgrades[def.id] || 0;
+    const cost = getOrbitalUpgradeCost(def, currentLevel);
+
+    if (stats.commandCredits >= cost && currentLevel < def.maxLevel) {
+      stats.commandCredits -= cost;
+      stats.orbitalUpgrades[def.id] = currentLevel + 1;
+      stats.orbitalUpgrades = { ...stats.orbitalUpgrades };
+      saveStats(stats);
+      setRenderTick(t => t + 1);
+    }
+  };
+
+  const handleOrbitalClose = () => {
+    const state = gameStateRef.current;
+    state.phase = 'title';
+    gameStateRef.current = { ...state };
+    setRenderTick(t => t + 1);
+
+    // Re-init game state with new upgrades to reflect changes immediately in title?
+    // Actually initGameState creates a fresh game.
+    // We are in title phase, so easy.
+    gameStateRef.current = initGameState(statsRef.current.orbitalUpgrades);
+    gameStateRef.current.phase = 'title';
+  };
+
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
@@ -3691,8 +3671,8 @@ export function App() {
       }
 
       if (state.phase === 'title') {
-        // Check for prestige shop click (if button visible)
-        if (statsRef.current.prestigePoints > 0) {
+        // Check for orbital command click
+        if (statsRef.current.commandCredits > 0 || statsRef.current.prestigeLevel > 0) {
           // Assume button is near stats area, let's put it specifically
           // Wait, drawTitleScreen needs to draw the button first.
           // I didn't add the button rect in drawTitleScreen.
@@ -3703,7 +3683,7 @@ export function App() {
           const btnX = (CANVAS_WIDTH - btnW) / 2;
           if (x >= btnX && x <= btnX + btnW && y >= sY && y <= sY + btnH) {
             const newState = { ...state };
-            newState.phase = 'prestige_shop';
+            newState.phase = 'orbital_command';
             gameStateRef.current = newState;
             setRenderTick(t => t + 1);
             return;
@@ -3724,7 +3704,7 @@ export function App() {
 
       if (state.phase === 'gameover') {
         // Check prestige click
-        const pp = calcPrestigePoints(state);
+        const pp = calcCommandCredits(state);
         if (state.level >= 5 && pp > 0) {
           const btnW = 200;
           const btnH = 36;
@@ -3733,24 +3713,27 @@ export function App() {
           if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
             const stats = statsRef.current;
             stats.prestigeLevel++;
-            stats.prestigePoints += pp;
-            stats.prestigeBonuses = { ...stats.prestigeBonuses }; // ensure reactivity if we used state
+            stats.commandCredits += pp;
+            stats.orbitalUpgrades = { ...stats.orbitalUpgrades };
             saveStats(stats);
 
-            gameStateRef.current = initGameState(stats.prestigeBonuses);
+            gameStateRef.current = initGameState(stats.orbitalUpgrades);
             gameStateRef.current.phase = 'title';
             setRenderTick((t) => t + 1);
             return;
           }
         }
 
+
+
         const wasAutoMode = autoPlayRef.current.active;
-        gameStateRef.current = initGameState(statsRef.current.prestigeBonuses);
+        gameStateRef.current = initGameState(statsRef.current.orbitalUpgrades);
         gameStateRef.current.phase = 'title';
         gameStateRef.current.autoMode = wasAutoMode;
         setRenderTick((t) => t + 1);
         return;
       }
+
 
       if (state.phase === 'zone_intro') {
         // Skip to shop
@@ -3762,54 +3745,8 @@ export function App() {
         return;
       }
 
-      // Shop phase logic removed (Shop is now sidebar)
 
-      if (state.phase === 'prestige_shop') {
-        const stats = statsRef.current;
-        const startY = 130;
-        const colW = 400;
-        const rowH = 70;
-        const col1X = CANVAS_WIDTH / 2 - colW / 2;
 
-        // Check upgrades
-        let somethingBought = false;
-        PRESTIGE_UPGRADE_DEFS.forEach((def, i) => {
-          const rowY = startY + i * (rowH + 10);
-          const currentLevel = stats.prestigeBonuses[def.key];
-          const maxed = currentLevel >= def.maxLevel;
-
-          if (!maxed) {
-            const { x: btnX, y: btnY, w: btnW, h: btnH } = getPrestigeButtonRect(col1X, colW, rowY);
-            if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
-              if (stats.prestigePoints >= def.cost) {
-                stats.prestigePoints -= def.cost;
-                stats.prestigeBonuses[def.key]++;
-                somethingBought = true;
-              }
-            }
-          }
-        });
-
-        if (somethingBought) {
-          saveStats(stats);
-          setRenderTick(t => t + 1);
-          return;
-        }
-
-        // Back button
-        const backY = CANVAS_HEIGHT - 60;
-        const backW = 200;
-        const backH = 40;
-        const backX = CANVAS_WIDTH / 2 - backW / 2;
-        if (x >= backX && x <= backX + backW && y >= backY && y <= backY + backH) {
-          const newState = { ...state };
-          newState.phase = 'title';
-          gameStateRef.current = newState;
-          setRenderTick(t => t + 1);
-          return;
-        }
-        return;
-      }
 
       if (state.levelComplete) return;
 
@@ -4368,6 +4305,16 @@ export function App() {
               onMouseMove={handleMouseMove}
               style={{ imageRendering: 'pixelated' }}
             />
+
+            {/* Orbital Command Overlay */}
+            {gameStateRef.current.phase === 'orbital_command' && (
+              <OrbitalCommand
+                credits={statsRef.current.commandCredits}
+                upgrades={statsRef.current.orbitalUpgrades}
+                onBuy={buyOrbitalUpgrade}
+                onClose={handleOrbitalClose}
+              />
+            )}
 
             {/* Title Screen Overlay Logic for React Button integration if needed, 
                  but we kept title screen on canvas. We can overlay the Save Code stuff here. */}
