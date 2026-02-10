@@ -1891,6 +1891,69 @@ function getShopCardRect(index: number): { x: number; y: number; w: number; h: n
 }
 
 // ─── Rendering ──────────────────────────────────────────────────────────
+const skyGradientCache = new Map<number, CanvasGradient>();
+const groundGradientCache = new Map<number, CanvasGradient>();
+const buildingGradientCache = new Map<string, CanvasGradient>();
+let lastGradientsCtx: CanvasRenderingContext2D | null = null;
+
+function clearGradientCaches(ctx: CanvasRenderingContext2D) {
+  if (ctx !== lastGradientsCtx) {
+    skyGradientCache.clear();
+    groundGradientCache.clear();
+    buildingGradientCache.clear();
+    lastGradientsCtx = ctx;
+  }
+}
+
+function getCachedSkyGradient(ctx: CanvasRenderingContext2D, zone: ZoneDefinition): CanvasGradient {
+  clearGradientCaches(ctx);
+  let grad = skyGradientCache.get(zone.id);
+  if (!grad) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    grad.addColorStop(0, zone.skyColors[0]);
+    grad.addColorStop(0.6, zone.skyColors[1]);
+    grad.addColorStop(1, zone.skyColors[2]);
+    ctx.restore();
+    skyGradientCache.set(zone.id, grad);
+  }
+  return grad;
+}
+
+function getCachedGroundGradient(ctx: CanvasRenderingContext2D, zone: ZoneDefinition): CanvasGradient {
+  clearGradientCaches(ctx);
+  let grad = groundGradientCache.get(zone.id);
+  if (!grad) {
+    const groundY = CANVAS_HEIGHT - GROUND_HEIGHT;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    grad = ctx.createLinearGradient(0, groundY, 0, CANVAS_HEIGHT);
+    grad.addColorStop(0, zone.groundColors[0]);
+    grad.addColorStop(0.3, zone.groundColors[1]);
+    grad.addColorStop(1, zone.groundColors[2]);
+    ctx.restore();
+    groundGradientCache.set(zone.id, grad);
+  }
+  return grad;
+}
+
+function getCachedBuildingGradient(ctx: CanvasRenderingContext2D, zoneId: number, cityIdx: number, bIdx: number, bx: number, by: number, bw: number, bh: number, colors: [string, string]): CanvasGradient {
+  clearGradientCaches(ctx);
+  const key = `${zoneId}-${cityIdx}-${bIdx}`;
+  let grad = buildingGradientCache.get(key);
+  if (!grad) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    grad = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
+    grad.addColorStop(0, colors[0]);
+    grad.addColorStop(1, colors[1]);
+    ctx.restore();
+    buildingGradientCache.set(key, grad);
+  }
+  return grad;
+}
+
 function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: PersistentStats) {
   if (state.phase === 'shop') {
     drawShop(ctx, state);
@@ -1926,11 +1989,7 @@ function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: Persi
   ctx.translate(sx, sy);
 
   // Sky gradient
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-  skyGrad.addColorStop(0, zone.skyColors[0]);
-  skyGrad.addColorStop(0.6, zone.skyColors[1]);
-  skyGrad.addColorStop(1, zone.skyColors[2]);
-  ctx.fillStyle = skyGrad;
+  ctx.fillStyle = getCachedSkyGradient(ctx, zone);
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   // Stars
@@ -1970,11 +2029,7 @@ function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: Persi
 
   // Ground
   const groundY = CANVAS_HEIGHT - GROUND_HEIGHT;
-  const groundGrad = ctx.createLinearGradient(0, groundY, 0, CANVAS_HEIGHT);
-  groundGrad.addColorStop(0, zone.groundColors[0]);
-  groundGrad.addColorStop(0.3, zone.groundColors[1]);
-  groundGrad.addColorStop(1, zone.groundColors[2]);
-  ctx.fillStyle = groundGrad;
+  ctx.fillStyle = getCachedGroundGradient(ctx, zone);
   ctx.fillRect(0, groundY, CANVAS_WIDTH, GROUND_HEIGHT);
 
   ctx.strokeStyle = zone.groundStrokeColor;
@@ -2003,7 +2058,7 @@ function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: Persi
   const shieldMax = getShieldMaxHits(state.upgrades);
   state.cities.forEach((city, ci) => {
     if (city.alive) {
-      drawCity(ctx, city.x, groundY, zone);
+      drawCity(ctx, city.x, groundY, zone, ci);
       if (shieldMax > 0 && state.shieldHits[ci] < shieldMax) {
         const shieldStrength = 1 - state.shieldHits[ci] / shieldMax;
         ctx.strokeStyle = `rgba(100, 180, 255, ${shieldStrength * 0.7})`;
@@ -2414,7 +2469,7 @@ function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: Persi
 
 }
 
-function drawCity(ctx: CanvasRenderingContext2D, x: number, groundY: number, zone: ZoneDefinition) {
+function drawCity(ctx: CanvasRenderingContext2D, x: number, groundY: number, zone: ZoneDefinition, cityIdx: number) {
   const buildings = [
     { ox: -18, w: 10, h: 20 },
     { ox: -8, w: 12, h: 28 },
@@ -2422,14 +2477,11 @@ function drawCity(ctx: CanvasRenderingContext2D, x: number, groundY: number, zon
     { ox: 14, w: 8, h: 16 },
   ];
 
-  buildings.forEach((b) => {
+  buildings.forEach((b, bIdx) => {
     const bx = x + b.ox;
     const by = groundY - b.h;
 
-    const grad = ctx.createLinearGradient(bx, by, bx + b.w, by + b.h);
-    grad.addColorStop(0, zone.buildingColors[0]);
-    grad.addColorStop(1, zone.buildingColors[1]);
-    ctx.fillStyle = grad;
+    ctx.fillStyle = getCachedBuildingGradient(ctx, zone.id, cityIdx, bIdx, bx, by, b.w, b.h, zone.buildingColors);
     ctx.fillRect(bx, by, b.w, b.h);
 
     ctx.fillStyle = zone.windowColor;
@@ -3026,11 +3078,7 @@ function drawZoneIntro(ctx: CanvasRenderingContext2D, state: GameState) {
   const progress = 1 - state.zoneIntroTimer / 240;
 
   // Background transition
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-  skyGrad.addColorStop(0, nextZone.skyColors[0]);
-  skyGrad.addColorStop(0.6, nextZone.skyColors[1]);
-  skyGrad.addColorStop(1, nextZone.skyColors[2]);
-  ctx.fillStyle = skyGrad;
+  ctx.fillStyle = getCachedSkyGradient(ctx, nextZone);
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   // Stars
@@ -3044,11 +3092,7 @@ function drawZoneIntro(ctx: CanvasRenderingContext2D, state: GameState) {
   const groundY = CANVAS_HEIGHT - GROUND_HEIGHT;
   const groundAlpha = Math.min(1, progress * 1.5);
   ctx.globalAlpha = groundAlpha;
-  const groundGrad = ctx.createLinearGradient(0, groundY, 0, CANVAS_HEIGHT);
-  groundGrad.addColorStop(0, nextZone.groundColors[0]);
-  groundGrad.addColorStop(0.3, nextZone.groundColors[1]);
-  groundGrad.addColorStop(1, nextZone.groundColors[2]);
-  ctx.fillStyle = groundGrad;
+  ctx.fillStyle = getCachedGroundGradient(ctx, nextZone);
   ctx.fillRect(0, groundY, CANVAS_WIDTH, GROUND_HEIGHT);
   ctx.strokeStyle = nextZone.groundStrokeColor;
   ctx.lineWidth = 2;
@@ -3413,11 +3457,7 @@ function hexToRgb(hex: string): string {
 
 // ─── Title Screen ───────────────────────────────────────────────────────
 function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState, stats?: PersistentStats) {
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-  skyGrad.addColorStop(0, '#000011');
-  skyGrad.addColorStop(0.6, '#0a0a2e');
-  skyGrad.addColorStop(1, '#1a0a2e');
-  ctx.fillStyle = skyGrad;
+  ctx.fillStyle = getCachedSkyGradient(ctx, ZONES[0]);
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   state.stars.forEach((star) => {
