@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { ZoneDefinition, ZONES, getZone, getZoneIndex } from './zones';
 import { solveInterceptTime } from './utils/math';
+import { Upgrades, UpgradeDefinition, UPGRADE_DEFS, getUpgradeCost } from './data/upgrades';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 interface City {
@@ -133,33 +134,6 @@ interface SpecialWeapon {
   charges: number;
   maxCharges: number;
   cooldownTimer: number;
-}
-
-interface Upgrades {
-  blastRadius: number;
-  missileSpeed: number;
-  extraAmmo: number;
-  chainReaction: number;
-  armorPlating: number;
-  multiShot: number;
-  empBurst: number;
-  luckyStrike: number;
-  autoTurret: number;
-  shieldGenerator: number;
-  laserWeapon: number;
-  swarmWeapon: number;
-  mineWeapon: number;
-}
-
-interface UpgradeDefinition {
-  key: keyof Upgrades;
-  name: string;
-  description: string;
-  maxLevel: number;
-  baseCost: number;
-  costScale: number;
-  icon: string;
-  color: string;
 }
 
 interface Building {
@@ -394,6 +368,7 @@ const GROUND_HEIGHT = 60;
 const CITY_WIDTH = 40;
 const CITY_HEIGHT = 30;
 const BATTERY_WIDTH = 30;
+const BATTERY_EDGE_OFFSET = 40;
 const BASE_COUNTER_MISSILE_SPEED = 6;
 const BASE_EXPLOSION_RADIUS = 50;
 const EXPLOSION_GROW_SPEED = 1.5;
@@ -402,144 +377,6 @@ const BASE_AMMO = 10;
 
 let nextId = 0;
 const getId = () => ++nextId;
-
-// ─── Upgrade Definitions ───────────────────────────────────────────────
-const UPGRADE_DEFS: UpgradeDefinition[] = [
-  {
-    key: 'blastRadius',
-    name: 'Blast Radius',
-    description: 'Larger counter-missile explosions',
-    maxLevel: 5,
-    baseCost: 120,
-    costScale: 1.5,
-    icon: '💥',
-    color: '#ff6644',
-  },
-  {
-    key: 'missileSpeed',
-    name: 'Missile Velocity',
-    description: 'Faster counter-missiles reach targets quicker',
-    maxLevel: 5,
-    baseCost: 100,
-    costScale: 1.4,
-    icon: '🚀',
-    color: '#44aaff',
-  },
-  {
-    key: 'extraAmmo',
-    name: 'Ammo Cache',
-    description: '+3 ammo per battery each wave',
-    maxLevel: 5,
-    baseCost: 80,
-    costScale: 1.3,
-    icon: '🔋',
-    color: '#88ff44',
-  },
-  {
-    key: 'chainReaction',
-    name: 'Chain Reaction',
-    description: 'Secondary explosions are larger',
-    maxLevel: 5,
-    baseCost: 180,
-    costScale: 1.6,
-    icon: '⛓️',
-    color: '#ff9944',
-  },
-  {
-    key: 'luckyStrike',
-    name: 'Lucky Strike',
-    description: 'Chance for 2x-5x bonus score on kills',
-    maxLevel: 5,
-    baseCost: 150,
-    costScale: 1.4,
-    icon: '🍀',
-    color: '#ffdd44',
-  },
-  {
-    key: 'multiShot',
-    name: 'Multi-Shot',
-    description: 'Fire extra missiles per click',
-    maxLevel: 3,
-    baseCost: 1000,
-    costScale: 2.2,
-    icon: '🎯',
-    color: '#ff44aa',
-  },
-  {
-    key: 'empBurst',
-    name: 'EMP Burst',
-    description: 'Slow all missiles at wave start',
-    maxLevel: 3,
-    baseCost: 500,
-    costScale: 1.6,
-    icon: '⚡',
-    color: '#aa88ff',
-  },
-  {
-    key: 'autoTurret',
-    name: 'Auto Turret',
-    description: 'Auto-fires at nearest threats periodically',
-    maxLevel: 3,
-    baseCost: 1500,
-    costScale: 1.8,
-    icon: '🤖',
-    color: '#44ffcc',
-  },
-  {
-    key: 'shieldGenerator',
-    name: 'Shield Generator',
-    description: 'Energy shields absorb hits on cities',
-    maxLevel: 3,
-    baseCost: 800,
-    costScale: 2.0,
-    icon: '🛡️',
-    color: '#66bbff',
-  },
-  {
-    key: 'armorPlating',
-    name: 'City Repair',
-    description: 'Rebuild one destroyed city',
-    maxLevel: 3,
-    baseCost: 300,
-    costScale: 2.0,
-    icon: '🏗️',
-    color: '#44ff88',
-  },
-  {
-    key: 'laserWeapon',
-    name: 'Laser Beam',
-    description: 'Press 1: Instant beam destroys all in its path',
-    maxLevel: 3,
-    baseCost: 300,
-    costScale: 1.8,
-    icon: '🔫',
-    color: '#ff4444',
-  },
-  {
-    key: 'swarmWeapon',
-    name: 'Missile Swarm',
-    description: 'Press 2: Fire 8 missiles in a spread pattern',
-    maxLevel: 3,
-    baseCost: 250,
-    costScale: 1.6,
-    icon: '🎆',
-    color: '#ff8800',
-  },
-  {
-    key: 'mineWeapon',
-    name: 'Area Mine',
-    description: 'Press 3: Place proximity mine that auto-detonates',
-    maxLevel: 3,
-    baseCost: 200,
-    costScale: 1.5,
-    icon: '💣',
-    color: '#ff44ff',
-  },
-];
-
-function getUpgradeCost(def: UpgradeDefinition, currentLevel: number): number {
-  return Math.floor(def.baseCost * Math.pow(def.costScale, currentLevel));
-}
 
 // ─── Initialization ────────────────────────────────────────────────────
 function initStars(count: number): { x: number; y: number; brightness: number; size: number }[] {
@@ -562,9 +399,9 @@ function initCities(): City[] {
 
 function initBatteries(): MissileBattery[] {
   return [
-    { x: 40, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
+    { x: BATTERY_EDGE_OFFSET, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
     { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
-    { x: CANVAS_WIDTH - 40, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
+    { x: CANVAS_WIDTH - BATTERY_EDGE_OFFSET, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
   ];
 }
 
@@ -1084,25 +921,45 @@ function updateGame(state: GameState): GameState {
   });
 
   // Check asteroid-explosion collision
-  s.explosions.forEach((e) => {
-    if (e.radius <= 0) return;
+  const activeExplosions = s.explosions.filter((e) => e.radius > 0);
+  if (activeExplosions.length > 0) {
     s.asteroids = s.asteroids.map((a) => {
-      const dist = Math.hypot(a.x - e.x, a.y - e.y);
-      if (dist < e.radius + a.radius) {
-        const updated = { ...a, hp: a.hp - 1 };
-        if (updated.hp <= 0) {
-          s.score += 50;
-          s.credits += 50; // Asteroids now give credits
-          spawnParticles(a.x, a.y, 20, '#8888aa', s.particles);
-          s.bonusText.push({ text: '+50', x: a.x, y: a.y, life: 60, color: '#aaaaff' });
-          return { ...updated, radius: 0 }; // Mark for removal
+      let hp = a.hp;
+      let radius = a.radius;
+      let hits = 0;
+      let scoreEvents = 0;
+
+      for (const e of activeExplosions) {
+        const distSq = (a.x - e.x) ** 2 + (a.y - e.y) ** 2;
+        const minDist = e.radius + radius;
+        if (distSq < minDist * minDist) {
+          hp--;
+          hits++;
+
+          if (hp <= 0) {
+            scoreEvents++;
+            radius = 0;
+          } else {
+            spawnParticles(a.x, a.y, 5, '#666688', s.particles);
+          }
         }
-        spawnParticles(a.x, a.y, 5, '#666688', s.particles);
-        return updated;
+      }
+
+      if (hits > 0) {
+        if (scoreEvents > 0) {
+          s.score += 50 * scoreEvents;
+          s.credits += 50 * scoreEvents; // Asteroids now give credits
+          for (let i = 0; i < scoreEvents; i++) {
+            spawnParticles(a.x, a.y, 20, '#8888aa', s.particles);
+            s.bonusText.push({ text: '+50', x: a.x, y: a.y, life: 60, color: '#aaaaff' });
+          }
+          return { ...a, hp, radius: 0 }; // Mark for removal
+        }
+        return { ...a, hp };
       }
       return a;
     });
-  });
+  }
   s.asteroids = s.asteroids.filter((a) => a.radius > 0 && a.y < CANVAS_HEIGHT + 50 && a.x > -60 && a.x < CANVAS_WIDTH + 60);
 
   // Asteroid hits ground/cities
@@ -2468,6 +2325,20 @@ function drawBomber(ctx: CanvasRenderingContext2D, bomber: Bomber) {
   }
 }
 
+function traceAsteroidPath(ctx: CanvasRenderingContext2D, radius: number) {
+  ctx.beginPath();
+  const points = 8;
+  for (let i = 0; i < points; i++) {
+    const angle = (i / points) * Math.PI * 2;
+    const r = radius * (0.7 + Math.sin(i * 3.7) * 0.3);
+    const px = Math.cos(angle) * r;
+    const py = Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
+
 function drawAsteroid(ctx: CanvasRenderingContext2D, asteroid: Asteroid) {
   ctx.save();
   ctx.translate(asteroid.x, asteroid.y);
@@ -2475,17 +2346,7 @@ function drawAsteroid(ctx: CanvasRenderingContext2D, asteroid: Asteroid) {
 
   // Rocky body
   ctx.fillStyle = '#667788';
-  ctx.beginPath();
-  const points = 8;
-  for (let i = 0; i < points; i++) {
-    const angle = (i / points) * Math.PI * 2;
-    const r = asteroid.radius * (0.7 + Math.sin(i * 3.7) * 0.3);
-    const px = Math.cos(angle) * r;
-    const py = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
+  traceAsteroidPath(ctx, asteroid.radius);
   ctx.fill();
 
   // Craters
@@ -2500,16 +2361,7 @@ function drawAsteroid(ctx: CanvasRenderingContext2D, asteroid: Asteroid) {
   // Outline
   ctx.strokeStyle = '#8899aa';
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let i = 0; i < points; i++) {
-    const angle = (i / points) * Math.PI * 2;
-    const r = asteroid.radius * (0.7 + Math.sin(i * 3.7) * 0.3);
-    const px = Math.cos(angle) * r;
-    const py = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
+  traceAsteroidPath(ctx, asteroid.radius);
   ctx.stroke();
 
   // HP indicator
