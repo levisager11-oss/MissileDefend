@@ -312,8 +312,29 @@ interface UpgradeDefinition {
   color: string;
 }
 
+interface Building {
+  id: string;
+  name: string;
+  baseCost: number;
+  baseCps: number; // Credits per second
+  description: string;
+  icon: string;
+}
+
+const BUILDING_DEFS: Building[] = [
+  { id: 'solar_farm', name: 'Solar Farm', baseCost: 15, baseCps: 0.5, description: 'Harvests energy from the sun.', icon: '☀️' },
+  { id: 'scrap_yard', name: 'Scrap Yard', baseCost: 100, baseCps: 4, description: 'Recycles debris into credits.', icon: '♻️' },
+  { id: 'munitions_factory', name: 'Munitions Factory', baseCost: 1100, baseCps: 16, description: 'Produces and sells ammo.', icon: '🏭' },
+  { id: 'orbital_mine', name: 'Orbital Mine', baseCost: 12000, baseCps: 64, description: 'Automated mining in orbit.', icon: '⛏️' },
+  { id: 'defense_contract', name: 'Defense Contract', baseCost: 130000, baseCps: 260, description: 'Government funding for defense.', icon: '📜' },
+  { id: 'ai_core', name: 'AI Core', baseCost: 1400000, baseCps: 1400, description: 'High-frequency trading algorithms.', icon: '🧠' },
+];
+
 interface GameState {
+  credits: number; // Replaces score as currency
   score: number;
+  cps: number;
+  buildings: Record<string, number>;
   level: number;
   cities: City[];
   batteries: MissileBattery[];
@@ -324,7 +345,7 @@ interface GameState {
   bombers: Bomber[];
   asteroids: Asteroid[];
   gameOver: boolean;
-  phase: 'title' | 'playing' | 'shop' | 'gameover' | 'zone_intro' | 'prestige_shop';
+  phase: 'title' | 'playing' | 'shop' | 'gameover' | 'zone_intro' | 'prestige_shop' | 'level_complete';
   levelComplete: boolean;
   levelTransitionTimer: number;
   missileSpawnTimer: number;
@@ -729,8 +750,16 @@ function initGameState(prestige?: PrestigeBonuses): GameState {
   if (prestige && prestige.luckyStart > 0) upgrades.luckyStrike = Math.max(upgrades.luckyStrike, 1);
   const bonusAmmo = prestige ? prestige.bonusAmmo * 2 : 0;
   const maxAmmo = BASE_AMMO + bonusAmmo;
+
+  // Initialize buildings
+  const buildings: Record<string, number> = {};
+  BUILDING_DEFS.forEach(b => buildings[b.id] = 0);
+
   return {
+    credits: 0,
     score: prestige ? prestige.startingScore * 500 : 0,
+    cps: 0,
+    buildings,
     level: startLevel,
     cities: initCities(),
     batteries: initBatteries().map(b => ({ ...b, ammo: maxAmmo, maxAmmo })),
@@ -984,10 +1013,30 @@ function createBoss(level: number): Boss {
 }
 
 function updateGame(state: GameState): GameState {
-  if (state.phase !== 'playing') return state;
-  if (state.gameOver) return state;
+  const s = { ...state }; // Create a mutable copy of the state
 
-  const s = { ...state };
+  // Calculate CPS
+  let cps = 0;
+  BUILDING_DEFS.forEach(def => {
+    const count = s.buildings[def.id] || 0;
+    cps += count * def.baseCps;
+  });
+  s.cps = cps;
+
+  // Apply passive income
+  if (s.phase === 'playing' || s.phase === 'level_complete') {
+    const incomePerFrame = cps / 60;
+    s.credits += incomePerFrame;
+    // We can also add to score if score tracks "lifetime earnings" in this run
+    s.score += incomePerFrame;
+  }
+
+  if (s.phase === 'gameover') return s;
+  if (s.phase === 'level_complete') return s;
+  if (s.phase !== 'playing') return s; // This check should be after CPS/income, but before game logic
+  if (s.gameOver) return s;
+
+
   s.incomingMissiles = [...s.incomingMissiles];
   s.counterMissiles = [...s.counterMissiles];
   s.explosions = [...s.explosions];
@@ -3865,6 +3914,7 @@ export function App() {
   const [saveHash, setSaveHash] = useState('');
   const [loadHash, setLoadHash] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
+  const [showSaveMenu, setShowSaveMenu] = useState(false);
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -3956,11 +4006,7 @@ export function App() {
         return;
       }
 
-      if (state.phase === 'shop') {
-        if (autoPlayRef.current.active) return; // Auto handles shop
-        handleShopClick(x, y);
-        return;
-      }
+      // Shop phase logic removed (Shop is now sidebar)
 
       if (state.phase === 'prestige_shop') {
         const stats = statsRef.current;
@@ -4064,58 +4110,40 @@ export function App() {
     []
   );
 
-  const handleShopClick = useCallback((x: number, y: number) => {
-    const state = gameStateRef.current;
+  const buyBuilding = (id: string) => {
+    const s = gameStateRef.current;
+    const def = BUILDING_DEFS.find(b => b.id === id);
+    if (!def) return;
 
-    const continueY = SHOP_START_Y + Math.ceil(UPGRADE_DEFS.length / SHOP_COLS) * (SHOP_CARD_H + SHOP_GAP - 2) + 12;
-    const btnW = 240;
-    const btnH = 48;
-    const btnX = (CANVAS_WIDTH - btnW) / 2;
+    const count = s.buildings[id] || 0;
+    const cost = Math.floor(def.baseCost * Math.pow(1.15, count));
 
-    if (x >= btnX && x <= btnX + btnW && y >= continueY && y <= continueY + btnH) {
-      gameStateRef.current = startNextLevel(state);
-      setRenderTick((t) => t + 1);
-      return;
+    if (s.credits >= cost) {
+      s.credits -= cost;
+      s.buildings[id] = count + 1;
+      s.totalSpent += cost;
+      setRenderTick(t => t + 1);
     }
+  };
 
-    UPGRADE_DEFS.forEach((def, i) => {
-      const rect = getShopCardRect(i);
-      if (x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h) {
-        const currentLevel = state.upgrades[def.key];
-        if (currentLevel >= def.maxLevel) return;
+  const buyUpgrade = (key: keyof Upgrades) => {
+    const s = gameStateRef.current;
+    const def = UPGRADE_DEFS.find(u => u.key === key);
+    if (!def) return;
 
-        if (def.key === 'armorPlating') {
-          const destroyedIdx = state.cities.findIndex((c) => !c.alive);
-          if (destroyedIdx === -1) return;
+    const level = s.upgrades[key];
+    if (level >= def.maxLevel) return;
 
-          const cost = getUpgradeCost(def, currentLevel);
-          if (state.score < cost) return;
+    const cost = getUpgradeCost(def, level);
+    if (s.credits >= cost) {
+      s.credits -= cost;
+      s.upgrades[key] = level + 1;
+      s.totalSpent += cost;
+      setRenderTick(t => t + 1);
+    }
+  };
 
-          const newState = { ...state };
-          newState.score -= cost;
-          newState.totalSpent += cost;
-          newState.upgrades = { ...newState.upgrades, [def.key]: currentLevel + 1 };
-          newState.cities = [...newState.cities];
-          newState.cities[destroyedIdx] = { ...newState.cities[destroyedIdx], alive: true };
-          newState.shieldHits = [...newState.shieldHits];
-          newState.shieldHits[destroyedIdx] = 0;
-          gameStateRef.current = newState;
-          setRenderTick((t) => t + 1);
-          return;
-        }
-
-        const cost = getUpgradeCost(def, currentLevel);
-        if (state.score < cost) return;
-
-        const newState = { ...state };
-        newState.score -= cost;
-        newState.totalSpent += cost;
-        newState.upgrades = { ...newState.upgrades, [def.key]: currentLevel + 1 };
-        gameStateRef.current = newState;
-        setRenderTick((t) => t + 1);
-      }
-    });
-  }, []);
+  // Legacy shop click handler removed
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -4483,12 +4511,29 @@ export function App() {
           if (phase === 'title') {
             drawTitleScreen(ctx, gameStateRef.current, statsRef.current);
           } else {
-            drawGame(ctx, gameStateRef.current, statsRef.current);
+            // Draw game but NOT shop (shop is now React UI)
+            if (phase !== 'shop') {
+              drawGame(ctx, gameStateRef.current, statsRef.current);
+            } else {
+              // Immediate skip if in shop phase (which shouldn't happen anymore but just in case)
+              gameStateRef.current.phase = 'playing';
+            }
           }
           // Always draw auto-play overlay on top
           drawAutoPlayOverlay(ctx, auto, gameStateRef.current);
         }
       }
+
+      // Force React UI update every 5 frames for smooth credit counter
+      if (gameStateRef.current.phase === 'playing' || gameStateRef.current.phase === 'level_complete') {
+        if (state.score % 5 === 0 || Math.random() < 0.2) { // heuristic
+          setRenderTick(t => t + 1);
+        }
+      } else {
+        // Less frequent updates in other menus
+        if (Math.random() < 0.05) setRenderTick(t => t + 1);
+      }
+
       animationRef.current = requestAnimationFrame(gameLoop);
     };
 
@@ -4497,63 +4542,202 @@ export function App() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-black select-none overflow-hidden">
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
-        className="max-w-full max-h-[90vh] border-2 border-green-900 rounded shadow-2xl shadow-green-900/30"
-        onClick={handleClick}
-        onMouseMove={handleMouseMove}
-        style={{ imageRendering: 'auto' }}
-      />
-      <div className="w-full max-w-4xl mt-4 px-4 text-gray-300 text-sm font-mono">
-        <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
-          <button
-            onClick={handleSave}
-            className="px-3 py-2 bg-green-900/50 border border-green-700 rounded text-green-200 hover:bg-green-800/60 transition"
-          >
-            Generate Save Code
-          </button>
-          <div className="flex-1 w-full">
-            <label className="block text-xs text-gray-500 mb-1">Save Code</label>
-            <div className="flex gap-2">
-              <input
-                value={saveHash}
-                readOnly
-                className="flex-1 px-3 py-2 bg-black/60 border border-gray-700 rounded text-gray-200 text-xs"
-                placeholder="Click Generate Save Code"
-              />
-              <button
-                onClick={handleCopySave}
-                className="px-3 py-2 bg-blue-900/50 border border-blue-700 rounded text-blue-200 hover:bg-blue-800/60 transition"
-              >
-                Copy
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 w-full">
-            <label className="block text-xs text-gray-500 mb-1">Load Code</label>
-            <div className="flex gap-2">
-              <input
-                value={loadHash}
-                onChange={(e) => setLoadHash(e.target.value)}
-                className="flex-1 px-3 py-2 bg-black/60 border border-gray-700 rounded text-gray-200 text-xs"
-                placeholder="Paste a save code to restore"
-              />
-              <button
-                onClick={handleLoad}
-                className="px-3 py-2 bg-purple-900/50 border border-purple-700 rounded text-purple-200 hover:bg-purple-800/60 transition"
-              >
-                Load
-              </button>
-            </div>
+    <div className="flex h-screen w-screen bg-black text-white overflow-hidden font-mono select-none">
+      {/* ─── Left Column: Buildings ───────────────────────────── */}
+      <div className="w-72 flex flex-col border-r border-green-900/30 bg-gray-900/90 z-20 shadow-xl">
+        <div className="p-4 border-b border-green-900/30 bg-gray-900">
+          <h2 className="text-xl font-bold text-green-400 flex items-center gap-2">
+            <span>🏭</span> INDUSTRY
+          </h2>
+          <div className="text-xs text-green-600 font-bold mt-1">
+            INCOME: {gameStateRef.current.cps.toFixed(1)} / sec
           </div>
         </div>
-        <div className="mt-2 text-xs text-gray-500">{saveStatus || 'Save your progress and restore it in any browser tab.'}</div>
+
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+          {BUILDING_DEFS.map((def) => {
+            const count = gameStateRef.current.buildings[def.id] || 0;
+            const cost = Math.floor(def.baseCost * Math.pow(1.15, count));
+            const canAfford = gameStateRef.current.credits >= cost;
+
+            return (
+              <div
+                key={def.id}
+                onClick={() => buyBuilding(def.id)}
+                className={`relative p-3 rounded border transition-all cursor-pointer group ${canAfford
+                  ? 'bg-gray-800 border-gray-700 hover:border-green-500 hover:bg-gray-750'
+                  : 'bg-gray-900/50 border-gray-800 opacity-60'
+                  }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="font-bold text-gray-200">{def.icon} {def.name}</div>
+                  <div className="text-2xl font-bold text-gray-700">{count}</div>
+                </div>
+                <div className="text-xs text-gray-400 mt-1 h-8">{def.description}</div>
+                <div className={`text-sm font-bold mt-2 ${canAfford ? 'text-yellow-400' : 'text-red-900'}`}>
+                  ⬡ {cost.toLocaleString()}
+                </div>
+                <div className="text-[10px] text-gray-500 absolute bottom-3 right-3">
+                  +{def.baseCps} CPS
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div className="mt-3 text-gray-600 text-sm font-mono">
-        Click to fire • Defend your cities across 5 zones • Buy upgrades between waves • <span className="text-gray-800 hover:text-gray-500 transition-colors" title="↑↑↓↓←→←→BA">???</span>
+
+      {/* ─── Center Column: Game ─────────────────────────────── */}
+      <div className="flex-1 flex flex-col relative bg-black">
+        {/* Top Resource Bar */}
+        <div className="h-16 flex items-center justify-between px-8 border-b border-gray-800 bg-gray-900/80 backdrop-blur z-10">
+          <div>
+            <div className="text-3xl font-bold text-yellow-500 drop-shadow-md">
+              ⬡ {Math.floor(gameStateRef.current.credits).toLocaleString()}
+            </div>
+            <div className="text-[10px] text-gray-500 tracking-widest uppercase">Available Credits</div>
+          </div>
+
+          <div className="flex flex-col items-end">
+            <div className="text-xl font-bold text-blue-400">LEVEL {gameStateRef.current.level}</div>
+            <div className="text-xs text-gray-500">{getZone(gameStateRef.current.level).name}</div>
+          </div>
+        </div>
+
+        {/* Canvas Container */}
+        <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-gray-950">
+          <div className="relative shadow-2xl shadow-green-900/10 rounded-lg overflow-hidden border border-gray-800">
+            <canvas
+              ref={canvasRef}
+              width={CANVAS_WIDTH}
+              height={CANVAS_HEIGHT}
+              className="max-w-full max-h-[calc(100vh-80px)] block"
+              onClick={handleClick}
+              onMouseMove={handleMouseMove}
+              style={{ imageRendering: 'pixelated' }}
+            />
+
+            {/* Title Screen Overlay Logic for React Button integration if needed, 
+                 but we kept title screen on canvas. We can overlay the Save Code stuff here. */}
+          </div>
+
+          {/* Save/Load Overlay */}
+          {showSaveMenu && (
+            <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-gray-700 p-6 rounded-lg shadow-2xl max-w-lg w-full">
+                <h3 className="text-xl font-bold text-white mb-4">SAVE / LOAD GAME</h3>
+
+                <div className="flex flex-col gap-4">
+                  <div className="p-3 bg-black/40 rounded border border-gray-800">
+                    <label className="block text-xs text-gray-500 mb-2">CURRENT SAVE CODE</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={saveHash || 'Click Generate'}
+                        className="flex-1 bg-black text-green-400 font-mono text-xs p-2 rounded border border-gray-700 focus:outline-none"
+                      />
+                      <button onClick={handleSave} className="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1 rounded">GENERATE</button>
+                      <button onClick={handleCopySave} className="bg-blue-700 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded">COPY</button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-black/40 rounded border border-gray-800">
+                    <label className="block text-xs text-gray-500 mb-2">LOAD SAVE CODE</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={loadHash}
+                        onChange={(e) => setLoadHash(e.target.value)}
+                        placeholder="Paste code here..."
+                        className="flex-1 bg-black text-white font-mono text-xs p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
+                      />
+                      <button onClick={handleLoad} className="bg-purple-700 hover:bg-purple-600 text-white text-xs px-3 py-1 rounded">LOAD</button>
+                    </div>
+                  </div>
+
+                  {saveStatus && <div className="text-xs text-yellow-400 text-center">{saveStatus}</div>}
+
+                  <button
+                    onClick={() => setShowSaveMenu(false)}
+                    className="mt-2 w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded font-bold"
+                  >
+                    CLOSE
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Save/Load Overlay Trigger */}
+          <div className="absolute bottom-4 left-4 text-xs text-gray-600 hover:text-gray-400 transition-colors cursor-pointer select-none"
+            onClick={() => setShowSaveMenu(prev => !prev)}>
+            [SAVE / LOAD]
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Right Column: Upgrades ──────────────────────────── */}
+      <div className="w-80 flex flex-col border-l border-blue-900/30 bg-gray-900/90 z-20 shadow-xl">
+        <div className="p-4 border-b border-blue-900/30 bg-gray-900">
+          <h2 className="text-xl font-bold text-blue-400 flex items-center gap-2">
+            <span>⚡</span> RESEARCH
+          </h2>
+          <div className="text-xs text-blue-600 font-bold mt-1">
+            ACTIVE BUFFS & TECH
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+          {UPGRADE_DEFS.map((def) => {
+            const currentLevel = gameStateRef.current.upgrades[def.key];
+            const isMaxed = currentLevel >= def.maxLevel;
+            const cost = getUpgradeCost(def, currentLevel);
+            const canAfford = !isMaxed && gameStateRef.current.credits >= cost;
+
+            // Unlock conditions (example: don't show everything at once? Or show all)
+            // Showing all for idle game style is fine.
+
+            return (
+              <div
+                key={def.key}
+                onClick={() => buyUpgrade(def.key)}
+                className={`relative p-3 rounded border transition-all group ${isMaxed
+                  ? 'bg-blue-900/20 border-blue-900/50'
+                  : canAfford
+                    ? 'bg-gray-800 border-gray-700 hover:border-blue-500 hover:bg-gray-750 cursor-pointer'
+                    : 'bg-gray-900/50 border-gray-800 opacity-60 cursor-not-allowed'
+                  }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="font-bold text-gray-200 text-sm flex items-center gap-2">
+                    <span>{def.icon}</span> {def.name}
+                  </div>
+                  {isMaxed ? (
+                    <span className="text-[10px] font-bold text-blue-400 border border-blue-900 px-1 rounded">MAX</span>
+                  ) : (
+                    <div className="text-xs font-mono text-gray-500">{currentLevel}/{def.maxLevel}</div>
+                  )}
+                </div>
+
+                <div className="text-xs text-gray-400 mt-1 h-8 leading-tight">{def.description}</div>
+
+                {!isMaxed && (
+                  <div className={`text-sm font-bold mt-2 ${canAfford ? 'text-yellow-400' : 'text-red-900'}`}>
+                    ⬡ {cost.toLocaleString()}
+                  </div>
+                )}
+
+                {/* Progress Bar for Level */}
+                <div className="mt-2 h-1 bg-gray-900 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500"
+                    style={{ width: `${(currentLevel / def.maxLevel) * 100}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
