@@ -2784,6 +2784,17 @@ function drawLevelComplete(ctx: CanvasRenderingContext2D, state: GameState) {
   }
 }
 
+function getPrestigeButtonRect(colX: number, colW: number, y: number) {
+  const btnW = 80;
+  const btnH = 30;
+  return {
+    x: colX + colW - btnW - 15,
+    y: y + 20,
+    w: btnW,
+    h: btnH,
+  };
+}
+
 function drawPrestigeShop(ctx: CanvasRenderingContext2D, stats: PersistentStats) {
   // Background
   const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
@@ -2854,10 +2865,7 @@ function drawPrestigeShop(ctx: CanvasRenderingContext2D, stats: PersistentStats)
       ctx.textAlign = 'right';
       ctx.fillText('MAXED', col1X + colW - 20, y + 40);
     } else {
-      const btnW = 80;
-      const btnH = 30;
-      const btnX = col1X + colW - btnW - 15;
-      const btnY = y + 20;
+      const { x: btnX, y: btnY, w: btnW, h: btnH } = getPrestigeButtonRect(col1X, colW, y);
 
       ctx.fillStyle = canAfford ? '#ffaa44' : '#555555';
       ctx.fillRect(btnX, btnY, btnW, btnH);
@@ -4024,15 +4032,12 @@ export function App() {
         // Check upgrades
         let somethingBought = false;
         PRESTIGE_UPGRADE_DEFS.forEach((def, i) => {
-          const y = startY + i * (rowH + 10);
+          const rowY = startY + i * (rowH + 10);
           const currentLevel = stats.prestigeBonuses[def.key];
           const maxed = currentLevel >= def.maxLevel;
 
           if (!maxed) {
-            const btnW = 80;
-            const btnH = 30;
-            const btnX = col1X + colW - btnW - 15;
-            const btnY = y + 20;
+            const { x: btnX, y: btnY, w: btnW, h: btnH } = getPrestigeButtonRect(col1X, colW, rowY);
             if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
               if (stats.prestigePoints >= def.cost) {
                 stats.prestigePoints -= def.cost;
