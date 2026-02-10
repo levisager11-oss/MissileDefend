@@ -2467,6 +2467,20 @@ function drawBomber(ctx: CanvasRenderingContext2D, bomber: Bomber) {
   }
 }
 
+function traceAsteroidPath(ctx: CanvasRenderingContext2D, radius: number) {
+  ctx.beginPath();
+  const points = 8;
+  for (let i = 0; i < points; i++) {
+    const angle = (i / points) * Math.PI * 2;
+    const r = radius * (0.7 + Math.sin(i * 3.7) * 0.3);
+    const px = Math.cos(angle) * r;
+    const py = Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
+
 function drawAsteroid(ctx: CanvasRenderingContext2D, asteroid: Asteroid) {
   ctx.save();
   ctx.translate(asteroid.x, asteroid.y);
@@ -2474,17 +2488,7 @@ function drawAsteroid(ctx: CanvasRenderingContext2D, asteroid: Asteroid) {
 
   // Rocky body
   ctx.fillStyle = '#667788';
-  ctx.beginPath();
-  const points = 8;
-  for (let i = 0; i < points; i++) {
-    const angle = (i / points) * Math.PI * 2;
-    const r = asteroid.radius * (0.7 + Math.sin(i * 3.7) * 0.3);
-    const px = Math.cos(angle) * r;
-    const py = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
+  traceAsteroidPath(ctx, asteroid.radius);
   ctx.fill();
 
   // Craters
@@ -2499,16 +2503,7 @@ function drawAsteroid(ctx: CanvasRenderingContext2D, asteroid: Asteroid) {
   // Outline
   ctx.strokeStyle = '#8899aa';
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let i = 0; i < points; i++) {
-    const angle = (i / points) * Math.PI * 2;
-    const r = asteroid.radius * (0.7 + Math.sin(i * 3.7) * 0.3);
-    const px = Math.cos(angle) * r;
-    const py = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
+  traceAsteroidPath(ctx, asteroid.radius);
   ctx.stroke();
 
   // HP indicator
