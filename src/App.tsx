@@ -941,12 +941,12 @@ function findClosestBattery(state: GameState, targetX: number, targetY: number):
   return closest;
 }
 
-function fireCounterMissile(state: GameState, x: number, y: number): boolean {
+function fireCounterMissile(state: GameState, x: number, y: number, consumeAmmo: boolean = true): boolean {
   const batteryIdx = findClosestBattery(state, x, y);
   if (batteryIdx === -1) return false;
 
   const battery = state.batteries[batteryIdx];
-  if (!state.autoMode) {
+  if (!state.autoMode && consumeAmmo) {
     state.batteries[batteryIdx] = { ...battery, ammo: battery.ammo - 1 };
   }
   state.counterMissiles.push({
@@ -4007,7 +4007,7 @@ export function App() {
           for (let i = 0; i < 8; i++) {
             const angle = (i / 8) * Math.PI * 2;
             const spread = 40 + Math.random() * 20;
-            fireCounterMissile(newState, x + Math.cos(angle) * spread, y + Math.sin(angle) * spread);
+            fireCounterMissile(newState, x + Math.cos(angle) * spread, y + Math.sin(angle) * spread, false);
           }
         } else if (weapon.type === 'mine') {
           // Place a mine at click position
@@ -4028,7 +4028,7 @@ export function App() {
       for (let i = 0; i < multiCount; i++) {
         const offsetX = i === 0 ? 0 : (Math.random() - 0.5) * 40;
         const offsetY = i === 0 ? 0 : (Math.random() - 0.5) * 40;
-        fireCounterMissile(state, x + offsetX, y + offsetY);
+        fireCounterMissile(state, x + offsetX, y + offsetY, i === 0);
       }
     },
     []
@@ -4373,7 +4373,7 @@ export function App() {
                 for (let i = 0; i < multiCount; i++) {
                   const offsetX = i === 0 ? 0 : (Math.random() - 0.5) * 30;
                   const offsetY = i === 0 ? 0 : (Math.random() - 0.5) * 30;
-                  fireCounterMissile(state, target.x + offsetX, target.y + offsetY);
+                  fireCounterMissile(state, target.x + offsetX, target.y + offsetY, i === 0);
                 }
               }
             }
