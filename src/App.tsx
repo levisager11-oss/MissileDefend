@@ -1067,16 +1067,19 @@ function updateGame(state: GameState): GameState {
   if (s.levelComplete) {
     s.levelTransitionTimer--;
     if (s.levelTransitionTimer <= 0) {
-      // Check if we're entering a new zone
-      const currentZoneId = getZoneIndex(s.level);
-      const nextZoneId = getZoneIndex(s.level + 1);
-      if (nextZoneId !== currentZoneId) {
+      // Check if next level is new zone
+      if (getZone(s.level + 1).id !== getZone(s.level).id) {
         s.phase = 'zone_intro';
         s.zoneIntroTimer = 240;
-        s.previousZoneId = currentZoneId;
-        s.stars = initStars(ZONES[nextZoneId].starCount);
+        s.previousZoneId = getZone(s.level).id;
+        // Assuming startNextLevel returns a new state, and we want to update 's' with it
+        // If startNextLevel modifies the state in place, this line might need adjustment
+        // For now, we'll assume it returns a new state and we're updating 's'
+        Object.assign(s, startNextLevel(s));
       } else {
-        s.phase = 'shop';
+        // Skip shop, go straight to playing
+        Object.assign(s, startNextLevel(s));
+        s.phase = 'playing';
       }
       s.levelComplete = false;
     }
@@ -1513,6 +1516,7 @@ function updateGame(state: GameState): GameState {
       s.screenShake = 20;
       const bossScore = 500 + s.level * 50;
       s.score += bossScore;
+      s.credits += bossScore; // Add boss score to credits
       spawnParticles(boss.x, boss.y, 60, '#ff4400', s.particles);
       spawnParticles(boss.x, boss.y, 40, '#ffaa00', s.particles);
       spawnParticles(boss.x, boss.y, 30, '#ffffff', s.particles);
@@ -1580,6 +1584,7 @@ function updateGame(state: GameState): GameState {
         if (!m.isDecoy) {
           const scoreGain = 25 * s.comboMultiplier;
           s.score += scoreGain;
+          s.credits += scoreGain; // Laser score to credits
           s.runMissilesDestroyed++;
           s.comboCount++;
           s.comboTimer = 90;
@@ -1645,6 +1650,7 @@ function updateGame(state: GameState): GameState {
         }
         scoreGain *= s.comboMultiplier;
         s.score += scoreGain;
+        s.credits += scoreGain; // Add to spendable currency
 
         const comboText = s.comboMultiplier > 1 ? ` x${s.comboMultiplier}` : '';
         spawnParticles(mx, my, 12, '#ff4444', s.particles);
@@ -2774,7 +2780,7 @@ function drawLevelComplete(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.fillStyle = '#ffaa44';
     ctx.fillText(`Entering ${ZONES[nextZone].name}...`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
   } else {
-    ctx.fillText('Opening shop...', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+    ctx.fillText('Starting next wave...', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
   }
 }
 
