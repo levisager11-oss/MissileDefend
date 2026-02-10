@@ -324,7 +324,7 @@ interface GameState {
   bombers: Bomber[];
   asteroids: Asteroid[];
   gameOver: boolean;
-  phase: 'title' | 'playing' | 'shop' | 'gameover' | 'zone_intro';
+  phase: 'title' | 'playing' | 'shop' | 'gameover' | 'zone_intro' | 'prestige_shop';
   levelComplete: boolean;
   levelTransitionTimer: number;
   missileSpawnTimer: number;
@@ -365,6 +365,155 @@ interface GameState {
   comboTimer: number;
   comboMultiplier: number;
   maxCombo: number;
+  // Run tracking
+  runMissilesDestroyed: number;
+  runBossesDefeated: number;
+  achievementToasts: { text: string; icon: string; timer: number }[];
+  weaponsUsedThisLevel: Set<string>;
+}
+
+// ─── Progression System ─────────────────────────────────────────────────
+interface PrestigeBonuses {
+  startingScore: number;   // +500 per level, max 5
+  bonusAmmo: number;       // +2 ammo per level, max 3
+  toughCities: number;     // +1 hit per level, max 2
+  headStart: number;       // start at level 2, max 1
+  luckyStart: number;      // start with lucky strike 1, max 1
+}
+
+interface PersistentStats {
+  totalGames: number;
+  totalScore: number;
+  highScore: number;
+  highestLevel: number;
+  highestZone: number;
+  totalMissilesDestroyed: number;
+  totalBossesDefeated: number;
+  bestCombo: number;
+  totalCitiesSaved: number;
+  prestigeLevel: number;
+  prestigePoints: number;
+  prestigeBonuses: PrestigeBonuses;
+  achievements: string[];
+}
+
+interface AchievementDef {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  check: (state: GameState, stats: PersistentStats) => boolean;
+}
+
+const ACHIEVEMENT_DEFS: AchievementDef[] = [
+  {
+    id: 'first_blood', name: 'First Blood', description: 'Destroy your first missile', icon: '🎯',
+    check: (_, stats) => stats.totalMissilesDestroyed >= 1
+  },
+  {
+    id: 'combo_5', name: 'Combo Master', description: 'Get a 5x combo', icon: '🔥',
+    check: (state) => state.maxCombo >= 5
+  },
+  {
+    id: 'combo_10', name: 'Combo Legend', description: 'Get a 10x combo', icon: '💥',
+    check: (state) => state.maxCombo >= 10
+  },
+  {
+    id: 'boss_slayer', name: 'Boss Slayer', description: 'Defeat a boss', icon: '👑',
+    check: (_, stats) => stats.totalBossesDefeated >= 1
+  },
+  {
+    id: 'boss_trio', name: 'Triple Threat', description: 'Defeat 3 bosses', icon: '⚔️',
+    check: (_, stats) => stats.totalBossesDefeated >= 3
+  },
+  {
+    id: 'zone_2', name: 'Explorer', description: 'Reach Zone 2', icon: '🗺️',
+    check: (_, stats) => stats.highestZone >= 2
+  },
+  {
+    id: 'zone_5', name: 'World Traveler', description: 'Reach Zone 5', icon: '🌍',
+    check: (_, stats) => stats.highestZone >= 5
+  },
+  {
+    id: 'score_10k', name: 'Big Earner', description: 'Score 10,000 in one run', icon: '💰',
+    check: (state) => state.score >= 10000
+  },
+  {
+    id: 'score_100k', name: 'Millionaire', description: 'Score 100,000 in one run', icon: '💎',
+    check: (state) => state.score >= 100000
+  },
+  {
+    id: 'perfect_level', name: 'Untouchable', description: 'Complete a level with all cities', icon: '🛡️',
+    check: (state) => state.levelComplete && state.cities.filter(c => c.alive).length === 6
+  },
+  {
+    id: 'weapon_master', name: 'Weapon Master', description: 'Use all 3 special weapons', icon: '🔫',
+    check: (state) => state.specialWeapons.length >= 3 &&
+      state.specialWeapons.every(w => w.maxCharges > 0 && w.charges < w.maxCharges)
+  },
+  {
+    id: 'prestige_1', name: 'Reborn', description: 'Prestige for the first time', icon: '⭐',
+    check: (_, stats) => stats.prestigeLevel >= 1
+  },
+];
+
+interface PrestigeUpgradeDef {
+  key: keyof PrestigeBonuses;
+  name: string;
+  description: string;
+  cost: number;
+  maxLevel: number;
+  icon: string;
+}
+
+const PRESTIGE_UPGRADE_DEFS: PrestigeUpgradeDef[] = [
+  { key: 'startingScore', name: 'Seed Fund', description: '+500 starting score', cost: 3, maxLevel: 5, icon: '💰' },
+  { key: 'bonusAmmo', name: 'Ammo Depot', description: '+2 starting ammo', cost: 2, maxLevel: 3, icon: '🎯' },
+  { key: 'toughCities', name: 'Reinforced', description: 'Cities take +1 hit', cost: 5, maxLevel: 2, icon: '🏗️' },
+  { key: 'headStart', name: 'Veteran', description: 'Start at Level 2', cost: 4, maxLevel: 1, icon: '🚀' },
+  { key: 'luckyStart', name: 'Born Lucky', description: 'Start with Lucky Strike', cost: 3, maxLevel: 1, icon: '🍀' },
+];
+
+const STATS_KEY = 'missileDefendStats';
+
+function initPrestigeBonuses(): PrestigeBonuses {
+  return { startingScore: 0, bonusAmmo: 0, toughCities: 0, headStart: 0, luckyStart: 0 };
+}
+
+function initPersistentStats(): PersistentStats {
+  return {
+    totalGames: 0, totalScore: 0, highScore: 0, highestLevel: 0,
+    highestZone: 0, totalMissilesDestroyed: 0, totalBossesDefeated: 0,
+    bestCombo: 0, totalCitiesSaved: 0, prestigeLevel: 0, prestigePoints: 0,
+    prestigeBonuses: initPrestigeBonuses(), achievements: [],
+  };
+}
+
+function loadStats(): PersistentStats {
+  try {
+    const raw = localStorage.getItem(STATS_KEY);
+    if (!raw) return initPersistentStats();
+    const parsed = JSON.parse(raw);
+    return { ...initPersistentStats(), ...parsed, prestigeBonuses: { ...initPrestigeBonuses(), ...(parsed.prestigeBonuses || {}) } };
+  } catch { return initPersistentStats(); }
+}
+
+function saveStats(stats: PersistentStats) {
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch { /* noop */ }
+}
+
+function checkAchievements(state: GameState, stats: PersistentStats): string[] {
+  const newlyUnlocked: string[] = [];
+  ACHIEVEMENT_DEFS.forEach(def => {
+    if (!stats.achievements.includes(def.id) && def.check(state, stats)) {
+      newlyUnlocked.push(def.id);
+    }
+  });
+  return newlyUnlocked;
+}
+
+function calcPrestigePoints(state: GameState): number {
+  return Math.floor(state.score / 1000) + state.level * 2;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────
@@ -574,13 +723,17 @@ function initSpecialWeapons(upgrades: Upgrades): SpecialWeapon[] {
   ];
 }
 
-function initGameState(): GameState {
+function initGameState(prestige?: PrestigeBonuses): GameState {
   const upgrades = initUpgrades();
+  const startLevel = (prestige && prestige.headStart > 0) ? 2 : 1;
+  if (prestige && prestige.luckyStart > 0) upgrades.luckyStrike = Math.max(upgrades.luckyStrike, 1);
+  const bonusAmmo = prestige ? prestige.bonusAmmo * 2 : 0;
+  const maxAmmo = BASE_AMMO + bonusAmmo;
   return {
-    score: 0,
-    level: 1,
+    score: prestige ? prestige.startingScore * 500 : 0,
+    level: startLevel,
     cities: initCities(),
-    batteries: initBatteries(),
+    batteries: initBatteries().map(b => ({ ...b, ammo: maxAmmo, maxAmmo })),
     incomingMissiles: [],
     counterMissiles: [],
     explosions: [],
@@ -626,6 +779,10 @@ function initGameState(): GameState {
     comboTimer: 0,
     comboMultiplier: 1,
     maxCombo: 0,
+    runMissilesDestroyed: 0,
+    runBossesDefeated: 0,
+    achievementToasts: [],
+    weaponsUsedThisLevel: new Set<string>(),
   };
 }
 
@@ -1305,6 +1462,7 @@ function updateGame(state: GameState): GameState {
       spawnParticles(boss.x, boss.y, 30, '#ffffff', s.particles);
       s.explosions.push({ id: getId(), x: boss.x, y: boss.y, radius: 0, maxRadius: 120, growing: true, alpha: 1, isPlayerExplosion: false });
       s.bonusText.push({ text: `BOSS DESTROYED +${bossScore}`, x: boss.x, y: boss.y - 30, life: 150, color: '#ff8800' });
+      s.runBossesDefeated++;
     } else {
       s.boss = boss;
     }
@@ -1366,6 +1524,7 @@ function updateGame(state: GameState): GameState {
         if (!m.isDecoy) {
           const scoreGain = 25 * s.comboMultiplier;
           s.score += scoreGain;
+          s.runMissilesDestroyed++;
           s.comboCount++;
           s.comboTimer = 90;
           s.comboMultiplier = Math.min(Math.floor(s.comboCount / 2) + 1, 10);
@@ -1414,6 +1573,7 @@ function updateGame(state: GameState): GameState {
 
         // Combo tracking
         s.comboCount++;
+        s.runMissilesDestroyed++;
         s.comboTimer = 90;
         s.comboMultiplier = Math.min(Math.floor(s.comboCount / 2) + 1, 10);
         s.maxCombo = Math.max(s.maxCombo, s.comboCount);
@@ -1552,6 +1712,11 @@ function updateGame(state: GameState): GameState {
     .map((bt) => ({ ...bt, y: bt.y - 0.8, life: bt.life - 1 }))
     .filter((bt) => bt.life > 0);
 
+  // Update achievement toasts
+  s.achievementToasts = s.achievementToasts
+    .map(t => ({ ...t, timer: t.timer - 1 }))
+    .filter(t => t.timer > 0);
+
   // Clean up
   s.incomingMissiles = s.incomingMissiles.filter((m) => !m.destroyed || m.progress < 1.5);
   s.counterMissiles = s.counterMissiles.filter((m) => !m.arrived);
@@ -1647,10 +1812,10 @@ function startNextLevel(state: GameState): GameState {
 // ─── Shop Layout ────────────────────────────────────────────────────────
 const SHOP_CARD_W = 280;
 const SHOP_CARD_H = 72;
-const SHOP_COLS = 2;
+const SHOP_COLS = 3;
 const SHOP_GAP = 16;
 const SHOP_START_X = (CANVAS_WIDTH - (SHOP_CARD_W * SHOP_COLS + SHOP_GAP * (SHOP_COLS - 1))) / 2;
-const SHOP_START_Y = 115;
+const SHOP_START_Y = 100;
 
 function getShopCardRect(index: number): { x: number; y: number; w: number; h: number } {
   const col = index % SHOP_COLS;
@@ -1664,9 +1829,24 @@ function getShopCardRect(index: number): { x: number; y: number; w: number; h: n
 }
 
 // ─── Rendering ──────────────────────────────────────────────────────────
-function drawGame(ctx: CanvasRenderingContext2D, state: GameState) {
+function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: PersistentStats) {
   if (state.phase === 'shop') {
     drawShop(ctx, state);
+    return;
+  }
+
+  if (state.phase === 'title') {
+    drawTitleScreen(ctx, state, stats);
+    return;
+  }
+
+  if (state.phase === 'gameover') {
+    drawGameOver(ctx, state, stats);
+    return;
+  }
+
+  if (state.phase === 'prestige_shop' && stats) {
+    drawPrestigeShop(ctx, stats);
     return;
   }
 
@@ -2169,9 +2349,7 @@ function drawGame(ctx: CanvasRenderingContext2D, state: GameState) {
   }
 
   // Game over overlay
-  if (state.phase === 'gameover') {
-    drawGameOver(ctx, state);
-  }
+
 }
 
 function drawCity(ctx: CanvasRenderingContext2D, x: number, groundY: number, zone: ZoneDefinition) {
@@ -2495,6 +2673,31 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.font = '11px monospace';
     ctx.fillText(`${b.ammo}`, b.x, b.y - 15);
   });
+
+  // Achievement Toasts
+  state.achievementToasts.forEach((t, i) => {
+    const alpha = Math.min(1, t.timer / 20);
+    const y = 70 + i * 45;
+    const w = 240;
+    const x = CANVAS_WIDTH / 2 - w / 2;
+
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(x, y, w, 40);
+    ctx.strokeStyle = '#ffdd44';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, w, 40);
+
+    ctx.fillStyle = '#ffdd44';
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('🏆 ACHIEVEMENT UNLOCKED!', x + 10, y + 16);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px monospace';
+    ctx.fillText(`${t.icon} ${t.text}`, x + 10, y + 32);
+    ctx.globalAlpha = 1;
+  });
 }
 
 function drawLevelComplete(ctx: CanvasRenderingContext2D, state: GameState) {
@@ -2519,29 +2722,135 @@ function drawLevelComplete(ctx: CanvasRenderingContext2D, state: GameState) {
   }
 }
 
-function drawGameOver(ctx: CanvasRenderingContext2D, state: GameState) {
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+function drawPrestigeShop(ctx: CanvasRenderingContext2D, stats: PersistentStats) {
+  // Background
+  const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+  grad.addColorStop(0, '#1a0a2e');
+  grad.addColorStop(1, '#000000');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255, 170, 68, 0.1)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < CANVAS_WIDTH; i += 40) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke();
+  }
+  for (let i = 0; i < CANVAS_HEIGHT; i += 40) {
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke();
+  }
+
+  // Header
+  ctx.fillStyle = '#ffaa44';
+  ctx.font = 'bold 36px monospace';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#ffaa44';
+  ctx.shadowBlur = 15;
+  ctx.fillText('⭐ PRESTIGE SHOP ⭐', CANVAS_WIDTH / 2, 50);
+  ctx.shadowBlur = 0;
+
+  ctx.font = '18px monospace';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(`Prestige Level: ${stats.prestigeLevel}  •  Points Available: ${stats.prestigePoints}`, CANVAS_WIDTH / 2, 85);
+
+  // Upgrades
+  const startY = 130;
+  const colW = 400;
+  const rowH = 70;
+  const col1X = CANVAS_WIDTH / 2 - colW / 2;
+
+  PRESTIGE_UPGRADE_DEFS.forEach((def, i) => {
+    const y = startY + i * (rowH + 10);
+    const currentLevel = stats.prestigeBonuses[def.key];
+    const maxed = currentLevel >= def.maxLevel;
+    const canAfford = stats.prestigePoints >= def.cost;
+
+    // Card bg
+    ctx.fillStyle = maxed ? 'rgba(100, 255, 100, 0.1)' : 'rgba(255, 170, 68, 0.1)';
+    ctx.fillRect(col1X, y, colW, rowH);
+    ctx.strokeStyle = maxed ? '#44ff88' : '#ffaa44';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(col1X, y, colW, rowH);
+
+    // Icon & Name
+    ctx.textAlign = 'left';
+    ctx.font = '24px monospace';
+    ctx.fillText(def.icon, col1X + 15, y + 42);
+
+    ctx.fillStyle = maxed ? '#44ff88' : '#ffaa44';
+    ctx.font = 'bold 16px monospace';
+    ctx.fillText(`${def.name} (${currentLevel}/${def.maxLevel})`, col1X + 55, y + 25);
+
+    ctx.fillStyle = '#aaaaaa';
+    ctx.font = '12px monospace';
+    ctx.fillText(def.description, col1X + 55, y + 50);
+
+    // Cost / Buy Button
+    if (maxed) {
+      ctx.fillStyle = '#44ff88';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('MAXED', col1X + colW - 20, y + 40);
+    } else {
+      const btnW = 80;
+      const btnH = 30;
+      const btnX = col1X + colW - btnW - 15;
+      const btnY = y + 20;
+
+      ctx.fillStyle = canAfford ? '#ffaa44' : '#555555';
+      ctx.fillRect(btnX, btnY, btnW, btnH);
+      ctx.fillStyle = canAfford ? '#000000' : '#888888';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${def.cost} pts`, btnX + btnW / 2, btnY + 19);
+    }
+  });
+
+  // Back Button
+  const backY = CANVAS_HEIGHT - 60;
+  const backW = 200;
+  const backH = 40;
+  const backX = CANVAS_WIDTH / 2 - backW / 2;
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.fillRect(backX, backY, backW, backH);
+  ctx.strokeStyle = '#ffffff';
+  ctx.strokeRect(backX, backY, backW, backH);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 16px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('BACK TO TITLE', CANVAS_WIDTH / 2, backY + 26);
+}
+
+function drawGameOver(ctx: CanvasRenderingContext2D, state: GameState, stats?: PersistentStats) {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   ctx.fillStyle = '#ff4444';
   ctx.font = 'bold 48px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
+  ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 80);
 
   ctx.fillStyle = '#ffffff';
   ctx.font = '24px monospace';
-  ctx.fillText(`FINAL SCORE: ${state.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
+  ctx.fillText(`FINAL SCORE: ${state.score}`, CANVAS_WIDTH / 2, 130);
 
-  ctx.font = '18px monospace';
+  // Persistent high score
+  const persistHigh = stats ? Math.max(stats.highScore, state.score) : state.highScore;
+  ctx.font = '14px monospace';
+  ctx.fillStyle = state.score >= persistHigh ? '#ffdd44' : '#888888';
+  ctx.fillText(state.score >= persistHigh ? '★ NEW HIGH SCORE! ★' : `HIGH SCORE: ${persistHigh}`, CANVAS_WIDTH / 2, 155);
+
+  ctx.font = '16px monospace';
   ctx.fillStyle = '#aaaaaa';
   const zone = getZone(state.level);
-  ctx.fillText(`Reached Level ${state.level} — ${zone.name}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
+  ctx.fillText(`Reached Level ${state.level} — ${zone.name}`, CANVAS_WIDTH / 2, 185);
 
   // Zone progress bar
   const barW = 400;
-  const barH = 20;
+  const barH = 18;
   const barX = (CANVAS_WIDTH - barW) / 2;
-  const barY = CANVAS_HEIGHT / 2 + 50;
+  const barY = 200;
 
   ctx.fillStyle = 'rgba(30, 30, 50, 0.8)';
   ctx.fillRect(barX, barY, barW, barH);
@@ -2549,7 +2858,6 @@ function drawGameOver(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.lineWidth = 1;
   ctx.strokeRect(barX, barY, barW, barH);
 
-  // Zone segments
   ZONES.forEach((z, i) => {
     const segW = barW / ZONES.length;
     const segX = barX + i * segW;
@@ -2559,13 +2867,95 @@ function drawGameOver(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.fillStyle = reached ? '#ffffff' : '#666666';
     ctx.font = '8px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(z.name.split(' ')[0], segX + segW / 2, barY + 13);
+    ctx.fillText(z.name.split(' ')[0], segX + segW / 2, barY + 12);
   });
 
-  ctx.fillStyle = '#44ff88';
-  ctx.font = '20px monospace';
+  // ─── Run Stats ──────────────────────────────────────────────────
+  const statsY = 250;
+  ctx.font = 'bold 16px monospace';
+  ctx.fillStyle = '#44aaff';
   ctx.textAlign = 'center';
-  ctx.fillText('Click to Play Again', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 105);
+  ctx.fillText('── RUN STATS ──', CANVAS_WIDTH / 2, statsY);
+
+  const runStats = [
+    { label: '🎯 Missiles Destroyed', value: `${state.runMissilesDestroyed}` },
+    { label: '🔥 Best Combo', value: `${state.maxCombo}x` },
+    { label: '👑 Bosses Defeated', value: `${state.runBossesDefeated}` },
+    { label: '🏙️ Cities Saved', value: `${state.cities.filter(c => c.alive).length}/6` },
+  ];
+
+  ctx.font = '13px monospace';
+  const col1X = CANVAS_WIDTH / 2 - 150;
+  const col2X = CANVAS_WIDTH / 2 + 150;
+  runStats.forEach((rs, i) => {
+    const sx = i < 2 ? col1X : col2X;
+    const sy = statsY + 22 + (i % 2) * 22;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#aaaaaa';
+    ctx.fillText(rs.label, sx - 100, sy);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(rs.value, sx + 100, sy);
+  });
+
+  // ─── Prestige Preview ──────────────────────────────────────────
+  const pp = calcPrestigePoints(state);
+  if (state.level >= 5 && pp > 0) {
+    const pY = statsY + 80;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffaa44';
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText(`⭐ Prestige available! Earn ${pp} Prestige Points ⭐`, CANVAS_WIDTH / 2, pY);
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#aaaaaa';
+    ctx.fillText('(Prestige resets your run but grants permanent bonuses)', CANVAS_WIDTH / 2, pY + 18);
+
+    // Prestige button
+    const btnW = 200;
+    const btnH = 36;
+    const btnX = CANVAS_WIDTH / 2 - btnW / 2;
+    const btnY_btn = pY + 28;
+    ctx.fillStyle = 'rgba(255, 170, 68, 0.2)';
+    ctx.fillRect(btnX, btnY_btn, btnW, btnH);
+    ctx.strokeStyle = '#ffaa44';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(btnX, btnY_btn, btnW, btnH);
+    ctx.fillStyle = '#ffaa44';
+    ctx.font = 'bold 16px monospace';
+    ctx.fillText('PRESTIGE', CANVAS_WIDTH / 2, btnY_btn + 24);
+  }
+
+  // ─── Lifetime Stats ────────────────────────────────────────────
+  if (stats) {
+    const lY = state.level >= 5 && pp > 0 ? statsY + 165 : statsY + 85;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#666688';
+    ctx.font = '11px monospace';
+    const prestigeStr = stats.prestigeLevel > 0 ? ` • ⭐ Prestige ${stats.prestigeLevel}` : '';
+    ctx.fillText(`Games: ${stats.totalGames} • Lifetime Score: ${stats.totalScore} • Achievements: ${stats.achievements.length}/${ACHIEVEMENT_DEFS.length}${prestigeStr}`, CANVAS_WIDTH / 2, lY);
+  }
+
+  // ─── Newly Unlocked Achievements ───────────────────────────────
+  const toasts = state.achievementToasts;
+  if (toasts.length > 0) {
+    const aY = 440;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffdd44';
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText('🏆 ACHIEVEMENTS UNLOCKED! 🏆', CANVAS_WIDTH / 2, aY);
+    toasts.forEach((t, i) => {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '12px monospace';
+      ctx.fillText(`${t.icon} ${t.text}`, CANVAS_WIDTH / 2, aY + 20 + i * 18);
+    });
+  }
+
+  // Play again / prestige instructions
+  ctx.fillStyle = '#44ff88';
+  ctx.font = '18px monospace';
+  ctx.textAlign = 'center';
+  const bottomY = CANVAS_HEIGHT - 40;
+  ctx.fillText('Click to Play Again', CANVAS_WIDTH / 2, bottomY);
 }
 
 // ─── Zone Intro Screen ─────────────────────────────────────────────────
@@ -2960,7 +3350,7 @@ function hexToRgb(hex: string): string {
 }
 
 // ─── Title Screen ───────────────────────────────────────────────────────
-function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState) {
+function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState, stats?: PersistentStats) {
   const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
   skyGrad.addColorStop(0, '#000011');
   skyGrad.addColorStop(0.6, '#0a0a2e');
@@ -3008,8 +3398,20 @@ function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState) {
 
   ctx.fillStyle = '#aaaaaa';
   ctx.font = '14px monospace';
-  ctx.fillText('Click to aim and fire counter-missiles', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 45);
-  ctx.fillText('Defend your cities across 5 dangerous zones!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 65);
+  ctx.fillText('Click to aim and fire counter-missiles', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 35);
+  ctx.fillText('Defend your cities across 5 dangerous zones!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 55);
+
+  // Stats Display
+  if (stats) {
+    const sY = CANVAS_HEIGHT / 2 + 85;
+    ctx.fillStyle = '#666688';
+    ctx.font = '11px monospace';
+    const unlocked = stats.achievements.length;
+    const total = ACHIEVEMENT_DEFS.length;
+    const prestige = stats.prestigeLevel > 0 ? ` • ⭐ Prestige ${stats.prestigeLevel}` : '';
+    ctx.fillText(`Games: ${stats.totalGames} • High Score: ${stats.highScore}`, CANVAS_WIDTH / 2, sY);
+    ctx.fillText(`🏆 Achievements: ${unlocked}/${total}${prestige}`, CANVAS_WIDTH / 2, sY + 16);
+  }
 
   // Konami code hint - very subtle
   ctx.fillStyle = '#222233';
@@ -3018,7 +3420,7 @@ function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState) {
 
   // Zone preview
   ctx.font = '11px monospace';
-  const zonePreviewY = CANVAS_HEIGHT / 2 + 95;
+  const zonePreviewY = CANVAS_HEIGHT / 2 + 120;
   ZONES.forEach((z, i) => {
     ctx.fillStyle = z.groundStrokeColor;
     ctx.fillText(`Zone ${i + 1}: ${z.name}`, CANVAS_WIDTH / 2, zonePreviewY + i * 18);
@@ -3028,7 +3430,7 @@ function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState) {
   if (blink) {
     ctx.fillStyle = '#44ff88';
     ctx.font = 'bold 24px monospace';
-    ctx.fillText('CLICK TO START', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 210);
+    ctx.fillText('CLICK TO START', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 230);
   }
 }
 
@@ -3425,6 +3827,7 @@ function drawAutoPlayOverlay(ctx: CanvasRenderingContext2D, autoPlay: AutoPlaySt
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameStateRef = useRef<GameState>(initGameState());
+  const statsRef = useRef<PersistentStats>(initPersistentStats());
   const animationRef = useRef<number>(0);
   const [, setRenderTick] = useState(0);
   const autoPlayRef = useRef<AutoPlayState>(initAutoPlay());
@@ -3452,6 +3855,25 @@ export function App() {
       }
 
       if (state.phase === 'title') {
+        // Check for prestige shop click (if button visible)
+        if (statsRef.current.prestigePoints > 0) {
+          // Assume button is near stats area, let's put it specifically
+          // Wait, drawTitleScreen needs to draw the button first.
+          // I didn't add the button rect in drawTitleScreen.
+          // Let's assume a specific area: center bottom-ish
+          const sY = CANVAS_HEIGHT / 2 + 85 + 25;
+          const btnW = 160;
+          const btnH = 30;
+          const btnX = (CANVAS_WIDTH - btnW) / 2;
+          if (x >= btnX && x <= btnX + btnW && y >= sY && y <= sY + btnH) {
+            const newState = { ...state };
+            newState.phase = 'prestige_shop';
+            gameStateRef.current = newState;
+            setRenderTick(t => t + 1);
+            return;
+          }
+        }
+
         const newState = { ...state };
         newState.phase = 'playing';
         newState.autoMode = autoPlayRef.current.active;
@@ -3465,8 +3887,29 @@ export function App() {
       }
 
       if (state.phase === 'gameover') {
+        // Check prestige click
+        const pp = calcPrestigePoints(state);
+        if (state.level >= 5 && pp > 0) {
+          const btnW = 200;
+          const btnH = 36;
+          const btnX = (CANVAS_WIDTH - btnW) / 2;
+          const btnY = 330 + 28; // calculated from drawGameOver layout
+          if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
+            const stats = statsRef.current;
+            stats.prestigeLevel++;
+            stats.prestigePoints += pp;
+            stats.prestigeBonuses = { ...stats.prestigeBonuses }; // ensure reactivity if we used state
+            saveStats(stats);
+
+            gameStateRef.current = initGameState(stats.prestigeBonuses);
+            gameStateRef.current.phase = 'title';
+            setRenderTick((t) => t + 1);
+            return;
+          }
+        }
+
         const wasAutoMode = autoPlayRef.current.active;
-        gameStateRef.current = initGameState();
+        gameStateRef.current = initGameState(statsRef.current.prestigeBonuses);
         gameStateRef.current.phase = 'title';
         gameStateRef.current.autoMode = wasAutoMode;
         setRenderTick((t) => t + 1);
@@ -3486,6 +3929,56 @@ export function App() {
       if (state.phase === 'shop') {
         if (autoPlayRef.current.active) return; // Auto handles shop
         handleShopClick(x, y);
+        return;
+      }
+
+      if (state.phase === 'prestige_shop') {
+        const stats = statsRef.current;
+        const startY = 130;
+        const colW = 400;
+        const rowH = 70;
+        const col1X = CANVAS_WIDTH / 2 - colW / 2;
+
+        // Check upgrades
+        let somethingBought = false;
+        PRESTIGE_UPGRADE_DEFS.forEach((def, i) => {
+          const y = startY + i * (rowH + 10);
+          const currentLevel = stats.prestigeBonuses[def.key];
+          const maxed = currentLevel >= def.maxLevel;
+
+          if (!maxed) {
+            const btnW = 80;
+            const btnH = 30;
+            const btnX = col1X + colW - btnW - 15;
+            const btnY = y + 20;
+            if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
+              if (stats.prestigePoints >= def.cost) {
+                stats.prestigePoints -= def.cost;
+                stats.prestigeBonuses[def.key]++;
+                somethingBought = true;
+              }
+            }
+          }
+        });
+
+        if (somethingBought) {
+          saveStats(stats);
+          setRenderTick(t => t + 1);
+          return;
+        }
+
+        // Back button
+        const backY = CANVAS_HEIGHT - 60;
+        const backW = 200;
+        const backH = 40;
+        const backX = CANVAS_WIDTH / 2 - backW / 2;
+        if (x >= backX && x <= backX + backW && y >= backY && y <= backY + backH) {
+          const newState = { ...state };
+          newState.phase = 'title';
+          gameStateRef.current = newState;
+          setRenderTick(t => t + 1);
+          return;
+        }
         return;
       }
 
@@ -3699,6 +4192,22 @@ export function App() {
         }
       }
 
+      // DEBUG KEYS (Skip to Boss / Get Money)
+      if (key === 'l') {
+        const state = gameStateRef.current;
+        state.level = 4; // Set to 4 so winning Level 4 leads to Level 5 Boss
+        state.score += 5000;
+        state.phase = 'playing';
+        gameStateRef.current = startNextLevel(state);
+        setRenderTick((t) => t + 1);
+        return;
+      }
+      if (key === 'm') {
+        gameStateRef.current.score += 5000;
+        setRenderTick((t) => t + 1);
+        return;
+      }
+
       // Check Konami code
       const expectedKey = KONAMI_CODE[konamiIndexRef.current].toLowerCase();
       if (key === expectedKey) {
@@ -3746,6 +4255,8 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    statsRef.current = loadStats();
+
     const gameLoop = () => {
       const state = gameStateRef.current;
       const auto = autoPlayRef.current;
@@ -3872,7 +4383,37 @@ export function App() {
 
       // ─── Normal Game Update ────────────────────────────────
       if (state.phase === 'playing') {
+        const prevState = { ...gameStateRef.current };
         gameStateRef.current = updateGame(gameStateRef.current);
+
+        // Check for achievements
+        const newUnlocks = checkAchievements(gameStateRef.current, statsRef.current);
+        if (newUnlocks.length > 0) {
+          statsRef.current.achievements.push(...newUnlocks);
+          newUnlocks.forEach(id => {
+            const def = ACHIEVEMENT_DEFS.find(d => d.id === id);
+            if (def) {
+              gameStateRef.current.achievementToasts.push({
+                text: def.name, icon: def.icon, timer: 180
+              });
+            }
+          });
+          saveStats(statsRef.current);
+        }
+
+        // Check if just died
+        if (gameStateRef.current.phase === 'gameover' && prevState.phase === 'playing' && !gameStateRef.current.autoMode) {
+          const s = statsRef.current;
+          s.totalGames++;
+          s.totalScore += gameStateRef.current.score;
+          s.highScore = Math.max(s.highScore, gameStateRef.current.score);
+          s.highestLevel = Math.max(s.highestLevel, gameStateRef.current.level);
+          s.highestZone = Math.max(s.highestZone, getZoneIndex(gameStateRef.current.level) + 1);
+          s.totalMissilesDestroyed += gameStateRef.current.runMissilesDestroyed;
+          s.totalBossesDefeated += gameStateRef.current.runBossesDefeated;
+          s.bestCombo = Math.max(s.bestCombo, gameStateRef.current.maxCombo);
+          saveStats(s);
+        }
       } else if (state.phase === 'zone_intro' && !auto.active) {
         // Auto-advance zone intro (normal mode)
         const s = { ...state };
@@ -3909,9 +4450,9 @@ export function App() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           if (phase === 'title') {
-            drawTitleScreen(ctx, gameStateRef.current);
+            drawTitleScreen(ctx, gameStateRef.current, statsRef.current);
           } else {
-            drawGame(ctx, gameStateRef.current);
+            drawGame(ctx, gameStateRef.current, statsRef.current);
           }
           // Always draw auto-play overlay on top
           drawAutoPlayOverlay(ctx, auto, gameStateRef.current);
