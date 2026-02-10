@@ -2429,7 +2429,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
 
   ctx.textAlign = 'right';
   const zone = getZone(state.level);
-  ctx.fillStyle = zone.groundColor;
+  ctx.fillStyle = zone.groundColors[0];
   ctx.fillText(`ZONE ${zone.id}: ${zone.name}`, CANVAS_WIDTH - 10, 25);
 
   ctx.textAlign = 'center';
@@ -2469,10 +2469,8 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   // Special weapon HUD
   const weaponIcons: Record<string, string> = { laser: '🔫', swarm: '🎆', mine: '💣' };
   const weaponColors: Record<string, string> = { laser: '#ff4444', swarm: '#ff8800', mine: '#ff44ff' };
-  let hasAnyWeapon = false;
   state.specialWeapons.forEach((w, i) => {
     if (w.maxCharges <= 0) return;
-    hasAnyWeapon = true;
     const wx = 10 + i * 90;
     const wy = CANVAS_HEIGHT - 30;
     const selected = state.selectedWeapon === i;
@@ -2497,67 +2495,6 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.font = '11px monospace';
     ctx.fillText(`${b.ammo}`, b.x, b.y - 15);
   });
-}
-const zone = getZone(state.level);
-
-ctx.fillStyle = '#ffffff';
-ctx.font = 'bold 20px monospace';
-ctx.textAlign = 'left';
-ctx.fillText(`SCORE: ${state.score}`, 15, 30);
-
-ctx.textAlign = 'center';
-ctx.fillText(`LEVEL ${state.level}`, CANVAS_WIDTH / 2, 30);
-
-// Zone name
-ctx.font = '11px monospace';
-ctx.fillStyle = zone.groundStrokeColor;
-ctx.fillText(`⬡ ${zone.name} ⬡`, CANVAS_WIDTH / 2, 48);
-
-const aliveCities = state.cities.filter((c) => c.alive).length;
-ctx.textAlign = 'right';
-ctx.font = 'bold 20px monospace';
-ctx.fillStyle = aliveCities <= 2 ? '#ff4444' : '#44ff88';
-ctx.fillText(`CITIES: ${aliveCities}`, CANVAS_WIDTH - 15, 30);
-
-ctx.textAlign = 'center';
-ctx.font = '12px monospace';
-state.batteries.forEach((b, i) => {
-  const label = i === 0 ? 'L' : i === 1 ? 'C' : 'R';
-  let color = state.autoMode ? '#44ffcc' : b.ammo > 3 ? '#44ff88' : b.ammo > 0 ? '#ffaa44' : '#ff4444';
-  if (b.disabled > 0) color = '#8866ff';
-  ctx.fillStyle = color;
-  const text = b.disabled > 0 ? `${label}:EMP` : state.autoMode ? `${label}:∞` : `${label}:${b.ammo}`;
-  ctx.fillText(text, b.x, CANVAS_HEIGHT - 5);
-});
-
-// Active upgrade indicators
-const activeIndicators: { icon: string; color: string }[] = [];
-if (state.empActive > 0) activeIndicators.push({ icon: '⚡', color: '#aa88ff' });
-if (state.upgrades.autoTurret > 0) activeIndicators.push({ icon: '🤖', color: '#44ffcc' });
-if (state.upgrades.shieldGenerator > 0) activeIndicators.push({ icon: '🛡️', color: '#66bbff' });
-
-activeIndicators.forEach((ind, i) => {
-  ctx.font = '16px sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillStyle = ind.color;
-  ctx.fillText(ind.icon, 15 + i * 24, 68);
-});
-
-// Zone hazard warnings
-const hazards: string[] = [];
-if (zone.hasHeatSeekers) hazards.push('🔥 Seekers');
-if (zone.hasBombers) hazards.push('✈️ Bombers');
-if (zone.hasBlizzard) hazards.push('❄️ Blizzard');
-if (zone.hasDecoys) hazards.push('👻 Decoys');
-if (zone.hasAsteroids) hazards.push('☄️ Asteroids');
-if (zone.hasEmpEnemies) hazards.push('⚡ EMP');
-
-if (hazards.length > 0) {
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = '#ff8866';
-  ctx.fillText(hazards.join('  '), CANVAS_WIDTH - 15, 48);
-}
 }
 
 function drawLevelComplete(ctx: CanvasRenderingContext2D, state: GameState) {
@@ -3554,6 +3491,46 @@ export function App() {
 
       if (state.levelComplete) return;
 
+      // Special weapon firing
+      if (state.selectedWeapon >= 0 && state.selectedWeapon < state.specialWeapons.length) {
+        const weapons = [...state.specialWeapons];
+        const weapon = { ...weapons[state.selectedWeapon] };
+        if (weapon.charges <= 0) return;
+        weapon.charges--;
+        weapons[state.selectedWeapon] = weapon;
+        const newState = { ...state, specialWeapons: weapons };
+
+        if (weapon.type === 'laser') {
+          // Fire laser from closest battery to click point
+          const batIdx = findClosestBattery(state, x, y);
+          const bat = state.batteries[batIdx];
+          newState.laserBeams = [...state.laserBeams, {
+            id: getId(), startX: bat.x, startY: bat.y - 18,
+            endX: x, endY: y, life: 30, maxLife: 30,
+          }];
+          newState.screenShake = 4;
+        } else if (weapon.type === 'swarm') {
+          // Fire 8 missiles in a spread
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const spread = 40 + Math.random() * 20;
+            fireCounterMissile(newState, x + Math.cos(angle) * spread, y + Math.sin(angle) * spread);
+          }
+        } else if (weapon.type === 'mine') {
+          // Place a mine at click position
+          newState.mines = [...state.mines, {
+            id: getId(), x, y, radius: getExplosionRadius(state.upgrades) * 1.2,
+            life: 600, maxLife: 600, armed: false,
+          }];
+        }
+
+        if (weapon.charges <= 0) newState.selectedWeapon = -1;
+        gameStateRef.current = newState;
+        setRenderTick((t) => t + 1);
+        return;
+      }
+
+      // Normal firing
       const multiCount = getMultiShotCount(state.upgrades);
       for (let i = 0; i < multiCount; i++) {
         const offsetX = i === 0 ? 0 : (Math.random() - 0.5) * 40;
@@ -3702,6 +3679,24 @@ export function App() {
         gameStateRef.current.autoMode = false;
         setRenderTick((t) => t + 1);
         return;
+      }
+
+      // Weapon selection keys (1, 2, 3 to select, 0 to deselect)
+      if (gameStateRef.current.phase === 'playing' && !autoPlayRef.current.active) {
+        if (key === '1' || key === '2' || key === '3') {
+          const idx = parseInt(key) - 1;
+          const state = gameStateRef.current;
+          if (state.specialWeapons[idx] && state.specialWeapons[idx].maxCharges > 0) {
+            state.selectedWeapon = state.selectedWeapon === idx ? -1 : idx;
+            setRenderTick((t) => t + 1);
+            return;
+          }
+        }
+        if (key === '0' || key === 'escape') {
+          gameStateRef.current.selectedWeapon = -1;
+          setRenderTick((t) => t + 1);
+          return;
+        }
       }
 
       // Check Konami code
