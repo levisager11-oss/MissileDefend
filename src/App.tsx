@@ -1258,9 +1258,16 @@ function updateGame(state: GameState): GameState {
         const cm = closestMissile as IncomingMissile;
         const mx = cm.startX + (cm.targetX - cm.startX) * cm.progress;
         const my = cm.startY + (cm.targetY - cm.startY) * cm.progress;
-        const predX = mx + (cm.targetX - cm.startX) * 0.05;
-        const predY = my + (cm.targetY - cm.startY) * 0.05;
-        fireCounterMissile(s, predX, Math.min(predY, CANVAS_HEIGHT - GROUND_HEIGHT - 40));
+
+        const speedMult = cm.frozen ? 0.3 : 1.0;
+        const velScale = (cm.speed * speedMult) / 500;
+        const velX = (cm.targetX - cm.startX) * velScale;
+        const velY = (cm.targetY - cm.startY) * velScale;
+
+        const intercept = findBestIntercept(s, mx, my, velX, velY);
+        if (intercept) {
+          fireCounterMissile(s, intercept.x, intercept.y);
+        }
       }
     }
   }
@@ -3656,6 +3663,29 @@ function findBestTarget(state: GameState): { x: number; y: number } | null {
     }
   }
 
+  // Target boss
+  if (state.boss && !state.bossDefeated) {
+    const b = state.boss;
+    const hpPct = b.hp / b.maxHp;
+    const threat = (2.0 - hpPct) * 0.5; // High threat, increases as boss takes damage
+
+    // Boss moves horizontally
+    const velX = b.speed * b.moveDir;
+    const velY = 0;
+
+    const intercept = findBestIntercept(state, b.x, b.y, velX, velY);
+    if (intercept) {
+      const interceptKey = `${Math.round(intercept.x / 16)}_${Math.round(intercept.y / 16)}`;
+      const interceptTargeted = counterTargets.has(interceptKey);
+      const finalThreat = (interceptTargeted ? threat * 0.4 : threat) * 2.0; // Bosses are high priority
+
+      if (finalThreat > bestThreat) {
+        bestThreat = finalThreat;
+        bestTarget = { x: intercept.x, y: intercept.y };
+      }
+    }
+  }
+
   return bestTarget;
 }
 
@@ -4356,7 +4386,8 @@ export function App() {
           // Fire at intervals based on threat density
           const threatCount = state.incomingMissiles.filter((m) => !m.destroyed).length;
           const asteroidCount = state.asteroids.length;
-          const totalThreats = threatCount + asteroidCount;
+          const bossThreat = (state.boss && !state.bossDefeated) ? 1 : 0;
+          const totalThreats = threatCount + asteroidCount + bossThreat;
 
           // Fire faster when more threats exist
           const fireInterval = totalThreats > 10 ? 6 : totalThreats > 5 ? 10 : totalThreats > 2 ? 15 : 25;
