@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { ZoneDefinition, ZONES, getZone, getZoneIndex } from './zones';
+import { inplaceFilter } from './utils/arrayUtils';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 interface City {
@@ -1630,9 +1631,9 @@ function updateGame(state: GameState): GameState {
     .filter(t => t.timer > 0);
 
   // Clean up
-  s.incomingMissiles = s.incomingMissiles.filter((m) => !m.destroyed || m.progress < 1.5);
-  s.counterMissiles = s.counterMissiles.filter((m) => !m.arrived);
-  s.explosions = s.explosions.filter((e) => e.radius > 0 || e.growing);
+  inplaceFilter(s.incomingMissiles, (m) => !m.destroyed || m.progress < 1.5);
+  inplaceFilter(s.counterMissiles, (m) => !m.arrived);
+  inplaceFilter(s.explosions, (e) => e.radius > 0 || e.growing);
 
   // Screen shake decay
   s.screenShake = Math.max(0, s.screenShake - 0.5);
@@ -1641,7 +1642,7 @@ function updateGame(state: GameState): GameState {
   const bossCleared = !s.isBossLevel || s.bossDefeated;
   if (
     s.missilesSpawnedThisLevel >= s.totalMissilesThisLevel &&
-    s.incomingMissiles.filter((m) => !m.destroyed).length === 0 &&
+    !s.incomingMissiles.some((m) => !m.destroyed) &&
     s.explosions.length === 0 &&
     s.counterMissiles.length === 0 &&
     s.bombers.length === 0 &&
@@ -4313,7 +4314,7 @@ export function App() {
           state.cursorY += (auto.targetY - state.cursorY) * 0.15;
 
           // Fire at intervals based on threat density
-          const threatCount = state.incomingMissiles.filter((m) => !m.destroyed).length;
+          const threatCount = state.incomingMissiles.reduce((acc, m) => acc + (m.destroyed ? 0 : 1), 0);
           const asteroidCount = state.asteroids.length;
           const bossThreat = (state.boss && !state.bossDefeated) ? 1 : 0;
           const totalThreats = threatCount + asteroidCount + bossThreat;
