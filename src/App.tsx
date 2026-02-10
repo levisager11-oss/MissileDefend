@@ -393,6 +393,7 @@ const GROUND_HEIGHT = 60;
 const CITY_WIDTH = 40;
 const CITY_HEIGHT = 30;
 const BATTERY_WIDTH = 30;
+const BATTERY_EDGE_OFFSET = 40;
 const BASE_COUNTER_MISSILE_SPEED = 6;
 const BASE_EXPLOSION_RADIUS = 50;
 const EXPLOSION_GROW_SPEED = 1.5;
@@ -561,9 +562,9 @@ function initCities(): City[] {
 
 function initBatteries(): MissileBattery[] {
   return [
-    { x: 40, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
+    { x: BATTERY_EDGE_OFFSET, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
     { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
-    { x: CANVAS_WIDTH - 40, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
+    { x: CANVAS_WIDTH - BATTERY_EDGE_OFFSET, y: CANVAS_HEIGHT - GROUND_HEIGHT, ammo: BASE_AMMO, maxAmmo: BASE_AMMO, disabled: 0 },
   ];
 }
 
