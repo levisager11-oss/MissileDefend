@@ -173,7 +173,7 @@ interface GameState {
   bombers: Bomber[];
   asteroids: Asteroid[];
   gameOver: boolean;
-  phase: 'title' | 'playing' | 'shop' | 'gameover' | 'zone_intro' | 'orbital_command' | 'level_complete'; // Added 'orbital_command'
+  phase: 'title' | 'playing' | 'shop' | 'gameover' | 'zone_intro' | 'orbital_command' | 'level_complete' | 'ascend_confirm'; // Added 'ascend_confirm'
   levelComplete: boolean;
   levelTransitionTimer: number;
   missileSpawnTimer: number;
@@ -1724,6 +1724,13 @@ function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: Persi
     return;
   }
 
+  if (state.phase === 'ascend_confirm' && stats) {
+    // Draw game in background then overlay
+    // But we need to draw the game first. 
+    // Actually, if we return here, we don't draw the game.
+    // Let's let it fall through to draw game, then draw overlay at the end.
+  }
+
   const zone = getZone(state.level);
   const shake = state.screenShake;
   const sx = shake > 0 ? (Math.random() - 0.5) * shake : 0;
@@ -2204,6 +2211,10 @@ function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: Persi
   // HUD
   drawHUD(ctx, state);
 
+  if (state.phase === 'playing') {
+    drawAscendButton(ctx, state);
+  }
+
   // Level complete overlay
   if (state.levelComplete) {
     drawLevelComplete(ctx, state);
@@ -2211,6 +2222,114 @@ function drawGame(ctx: CanvasRenderingContext2D, state: GameState, stats?: Persi
 
   // Game over overlay
 
+  if (state.phase === 'ascend_confirm' && stats) {
+    drawAscendConfirm(ctx, state, stats);
+  }
+}
+
+function drawAscendButton(ctx: CanvasRenderingContext2D, state: GameState) {
+  if (state.level < 5) return;
+
+  const pp = calcCommandCredits(state);
+  const btnW = 100;
+  const btnH = 30;
+  const btnX = CANVAS_WIDTH - 120;
+  const btnY = 60; // Below Zone info
+
+  // Hover effect
+  const isHovered = state.cursorX >= btnX && state.cursorX <= btnX + btnW &&
+    state.cursorY >= btnY && state.cursorY <= btnY + btnH;
+
+  ctx.save();
+  ctx.fillStyle = isHovered ? '#664488' : '#442266';
+  ctx.fillRect(btnX, btnY, btnW, btnH);
+
+  if (pp > 0) {
+    // Glow if prestige available
+    const glow = 0.5 + 0.5 * Math.sin(Date.now() * 0.005);
+    ctx.strokeStyle = `rgba(255, 200, 100, ${glow})`;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(btnX, btnY, btnW, btnH);
+    ctx.shadowColor = '#ffaa44';
+    ctx.shadowBlur = 10;
+  } else {
+    ctx.strokeStyle = '#665577';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(btnX, btnY, btnW, btnH);
+  }
+
+  ctx.fillStyle = pp > 0 ? '#ffdd88' : '#887799';
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(pp > 0 ? 'ASCEND!' : 'LEGACY', btnX + btnW / 2, btnY + 20);
+
+  // Tooltip if hovered
+  if (isHovered) {
+    const tooltip = pp > 0 ? `Reset for +${pp} Credits` : 'Need Score/Level to earn Credits';
+    ctx.textAlign = 'right';
+    ctx.font = '11px monospace';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(tooltip, btnX - 10, btnY + 20);
+  }
+
+  ctx.restore();
+}
+
+function drawAscendConfirm(ctx: CanvasRenderingContext2D, state: GameState, stats: PersistentStats) {
+  // Semi-transparent overlay
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  const cx = CANVAS_WIDTH / 2;
+  const cy = CANVAS_HEIGHT / 2;
+  const pp = calcCommandCredits(state);
+
+  ctx.textAlign = 'center';
+
+  // Title
+  ctx.font = 'bold 32px monospace';
+  ctx.fillStyle = '#ffaa44';
+  ctx.fillText('ASCENSION', cx, cy - 80);
+
+  // Info
+  ctx.font = '16px monospace';
+  ctx.fillStyle = '#cccccc';
+  ctx.fillText(`Current Level: ${state.level}`, cx, cy - 40);
+  ctx.fillText(`Current Score: ${state.score}`, cx, cy - 20);
+
+  ctx.font = 'bold 20px monospace';
+  ctx.fillStyle = '#44ff88';
+
+  // Fix: Ensure pp is at least 0 visually
+  ctx.fillText(`PRESTIGE EARNED: +${pp} CREDITS`, cx, cy + 20);
+
+  ctx.font = '14px monospace';
+  ctx.fillStyle = '#888888';
+  ctx.fillText('(Game progress will be reset)', cx, cy + 50);
+
+  // Buttons
+  // Confirm
+  const confirmBtnX = cx + 20;
+  const confirmBtnY = cy + 80;
+  const btnW = 120;
+  const btnH = 40;
+
+  ctx.fillStyle = '#44aa44'; // Green for confirm
+  ctx.fillRect(confirmBtnX, confirmBtnY, btnW, btnH);
+  ctx.strokeStyle = '#66cc66';
+  ctx.strokeRect(confirmBtnX, confirmBtnY, btnW, btnH);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px monospace';
+  ctx.fillText('ASCEND', confirmBtnX + btnW / 2, confirmBtnY + 25);
+
+  // Cancel
+  const cancelBtnX = cx - 20 - btnW;
+  ctx.fillStyle = '#aa4444'; // Red for cancel
+  ctx.fillRect(cancelBtnX, confirmBtnY, btnW, btnH);
+  ctx.strokeStyle = '#cc6666';
+  ctx.strokeRect(cancelBtnX, confirmBtnY, btnW, btnH);
+  ctx.fillStyle = '#fff';
+  ctx.fillText('CANCEL', cancelBtnX + btnW / 2, confirmBtnY + 25);
 }
 
 function drawCity(ctx: CanvasRenderingContext2D, x: number, groundY: number, zone: ZoneDefinition, cityIdx: number) {
@@ -3670,6 +3789,42 @@ export function App() {
         return; // Let auto-play handle it
       }
 
+      if (state.phase === 'ascend_confirm') {
+        const cx = CANVAS_WIDTH / 2;
+        const cy = CANVAS_HEIGHT / 2;
+        const btnW = 120;
+        const btnH = 40;
+
+        // Confirm
+        const confirmBtnX = cx + 20;
+        const confirmBtnY = cy + 80;
+        if (x >= confirmBtnX && x <= confirmBtnX + btnW && y >= confirmBtnY && y <= confirmBtnY + btnH) {
+          const pp = calcCommandCredits(state);
+          const stats = statsRef.current;
+          stats.prestigeLevel++;
+          stats.commandCredits += pp;
+          stats.orbitalUpgrades = { ...stats.orbitalUpgrades };
+          saveStats(stats);
+
+          gameStateRef.current = initGameState(stats.orbitalUpgrades);
+          gameStateRef.current.phase = 'title';
+          setRenderTick(t => t + 1);
+          return;
+        }
+
+        // Cancel
+        const cancelBtnX = cx - 20 - btnW;
+        if (x >= cancelBtnX && x <= cancelBtnX + btnW && y >= confirmBtnY && y <= confirmBtnY + btnH) {
+          const newState = { ...state };
+          newState.phase = 'playing';
+          gameStateRef.current = newState;
+          setRenderTick(t => t + 1);
+          return;
+        }
+
+        return;
+      }
+
       if (state.phase === 'title') {
         // Check for orbital command click
         if (statsRef.current.commandCredits > 0 || statsRef.current.prestigeLevel > 0) {
@@ -3787,6 +3942,21 @@ export function App() {
         gameStateRef.current = newState;
         setRenderTick((t) => t + 1);
         return;
+      }
+
+      // Check ascend button click
+      if (state.level >= 5) {
+        const btnW = 100;
+        const btnH = 30;
+        const btnX = CANVAS_WIDTH - 120;
+        const btnY = 60;
+        if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
+          const newState = { ...state };
+          newState.phase = 'ascend_confirm';
+          gameStateRef.current = newState;
+          setRenderTick(t => t + 1);
+          return;
+        }
       }
 
       // Normal firing
