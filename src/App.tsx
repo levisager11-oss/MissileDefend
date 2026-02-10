@@ -1083,25 +1083,45 @@ function updateGame(state: GameState): GameState {
   });
 
   // Check asteroid-explosion collision
-  s.explosions.forEach((e) => {
-    if (e.radius <= 0) return;
+  const activeExplosions = s.explosions.filter((e) => e.radius > 0);
+  if (activeExplosions.length > 0) {
     s.asteroids = s.asteroids.map((a) => {
-      const dist = Math.hypot(a.x - e.x, a.y - e.y);
-      if (dist < e.radius + a.radius) {
-        const updated = { ...a, hp: a.hp - 1 };
-        if (updated.hp <= 0) {
-          s.score += 50;
-          s.credits += 50; // Asteroids now give credits
-          spawnParticles(a.x, a.y, 20, '#8888aa', s.particles);
-          s.bonusText.push({ text: '+50', x: a.x, y: a.y, life: 60, color: '#aaaaff' });
-          return { ...updated, radius: 0 }; // Mark for removal
+      let hp = a.hp;
+      let radius = a.radius;
+      let hits = 0;
+      let scoreEvents = 0;
+
+      for (const e of activeExplosions) {
+        const distSq = (a.x - e.x) ** 2 + (a.y - e.y) ** 2;
+        const minDist = e.radius + radius;
+        if (distSq < minDist * minDist) {
+          hp--;
+          hits++;
+
+          if (hp <= 0) {
+            scoreEvents++;
+            radius = 0;
+          } else {
+            spawnParticles(a.x, a.y, 5, '#666688', s.particles);
+          }
         }
-        spawnParticles(a.x, a.y, 5, '#666688', s.particles);
-        return updated;
+      }
+
+      if (hits > 0) {
+        if (scoreEvents > 0) {
+          s.score += 50 * scoreEvents;
+          s.credits += 50 * scoreEvents; // Asteroids now give credits
+          for (let i = 0; i < scoreEvents; i++) {
+            spawnParticles(a.x, a.y, 20, '#8888aa', s.particles);
+            s.bonusText.push({ text: '+50', x: a.x, y: a.y, life: 60, color: '#aaaaff' });
+          }
+          return { ...a, hp, radius: 0 }; // Mark for removal
+        }
+        return { ...a, hp };
       }
       return a;
     });
-  });
+  }
   s.asteroids = s.asteroids.filter((a) => a.radius > 0 && a.y < CANVAS_HEIGHT + 50 && a.x > -60 && a.x < CANVAS_WIDTH + 60);
 
   // Asteroid hits ground/cities
