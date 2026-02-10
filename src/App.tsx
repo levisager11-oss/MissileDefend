@@ -171,12 +171,12 @@ interface Building {
 }
 
 const BUILDING_DEFS: Building[] = [
-  { id: 'solar_farm', name: 'Solar Farm', baseCost: 15, baseCps: 0.5, description: 'Harvests energy from the sun.', icon: '☀️' },
-  { id: 'scrap_yard', name: 'Scrap Yard', baseCost: 100, baseCps: 5, description: 'Recycles debris into credits.', icon: '♻️' },
-  { id: 'munitions_factory', name: 'Munitions Factory', baseCost: 1100, baseCps: 32, description: 'Produces and sells ammo.', icon: '🏭' },
-  { id: 'orbital_mine', name: 'Orbital Mine', baseCost: 12000, baseCps: 160, description: 'Automated mining in orbit.', icon: '⛏️' },
-  { id: 'defense_contract', name: 'Defense Contract', baseCost: 130000, baseCps: 1000, description: 'Government funding for defense.', icon: '📜' },
-  { id: 'ai_core', name: 'AI Core', baseCost: 1400000, baseCps: 6000, description: 'High-frequency trading algorithms.', icon: '🧠' },
+  { id: 'solar_farm', name: 'Solar Farm', baseCost: 25, baseCps: 0.4, description: 'Harvests energy from the sun.', icon: '☀️' },
+  { id: 'scrap_yard', name: 'Scrap Yard', baseCost: 250, baseCps: 4, description: 'Recycles debris into credits.', icon: '♻️' },
+  { id: 'munitions_factory', name: 'Munitions Factory', baseCost: 2500, baseCps: 25, description: 'Produces and sells ammo.', icon: '🏭' },
+  { id: 'orbital_mine', name: 'Orbital Mine', baseCost: 15000, baseCps: 120, description: 'Automated mining in orbit.', icon: '⛏️' },
+  { id: 'defense_contract', name: 'Defense Contract', baseCost: 200000, baseCps: 1000, description: 'Government funding for defense.', icon: '📜' },
+  { id: 'ai_core', name: 'AI Core', baseCost: 2500000, baseCps: 6000, description: 'High-frequency trading algorithms.', icon: '🧠' },
 ];
 
 interface GameState {
@@ -459,7 +459,7 @@ const UPGRADE_DEFS: UpgradeDefinition[] = [
     name: 'Multi-Shot',
     description: 'Fire extra missiles per click',
     maxLevel: 3,
-    baseCost: 400,
+    baseCost: 1000,
     costScale: 2.2,
     icon: '🎯',
     color: '#ff44aa',
@@ -469,7 +469,7 @@ const UPGRADE_DEFS: UpgradeDefinition[] = [
     name: 'EMP Burst',
     description: 'Slow all missiles at wave start',
     maxLevel: 3,
-    baseCost: 200,
+    baseCost: 500,
     costScale: 1.6,
     icon: '⚡',
     color: '#aa88ff',
@@ -479,7 +479,7 @@ const UPGRADE_DEFS: UpgradeDefinition[] = [
     name: 'Auto Turret',
     description: 'Auto-fires at nearest threats periodically',
     maxLevel: 3,
-    baseCost: 300,
+    baseCost: 1500,
     costScale: 1.8,
     icon: '🤖',
     color: '#44ffcc',
@@ -489,7 +489,7 @@ const UPGRADE_DEFS: UpgradeDefinition[] = [
     name: 'Shield Generator',
     description: 'Energy shields absorb hits on cities',
     maxLevel: 3,
-    baseCost: 350,
+    baseCost: 800,
     costScale: 2.0,
     icon: '🛡️',
     color: '#66bbff',
@@ -1091,6 +1091,7 @@ function updateGame(state: GameState): GameState {
         const updated = { ...a, hp: a.hp - 1 };
         if (updated.hp <= 0) {
           s.score += 50;
+          s.credits += 50; // Asteroids now give credits
           spawnParticles(a.x, a.y, 20, '#8888aa', s.particles);
           s.bonusText.push({ text: '+50', x: a.x, y: a.y, life: 60, color: '#aaaaff' });
           return { ...updated, radius: 0 }; // Mark for removal
@@ -1363,7 +1364,7 @@ function updateGame(state: GameState): GameState {
       s.bossDefeated = true;
       s.boss = null;
       s.screenShake = 20;
-      const bossScore = 500 + s.level * 50;
+      const bossScore = 200 + s.level * 20;
       s.score += bossScore;
       s.credits += bossScore; // Add boss score to credits
       spawnParticles(boss.x, boss.y, 60, '#ff4400', s.particles);
@@ -1489,7 +1490,7 @@ function updateGame(state: GameState): GameState {
         s.maxCombo = Math.max(s.maxCombo, s.comboCount);
 
         // Score with lucky strike + combo multiplier
-        let scoreGain = 25;
+        let scoreGain = 10;
         let bonusColor = '#ffdd44';
         const luckyChance = getLuckyChance(s.upgrades);
         if (Math.random() < luckyChance) {
