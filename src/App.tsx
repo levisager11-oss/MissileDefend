@@ -1639,6 +1639,7 @@ function getShopCardRect(index: number): { x: number; y: number; w: number; h: n
 
 // ─── Rendering ──────────────────────────────────────────────────────────
 const skyGradientCache = new Map<number, CanvasGradient>();
+const shopGradientCache = new Map<string, CanvasGradient>();
 const groundGradientCache = new Map<number, CanvasGradient>();
 const buildingGradientCache = new Map<string, CanvasGradient>();
 let lastGradientsCtx: CanvasRenderingContext2D | null = null;
@@ -1646,6 +1647,7 @@ let lastGradientsCtx: CanvasRenderingContext2D | null = null;
 function clearGradientCaches(ctx: CanvasRenderingContext2D) {
   if (ctx !== lastGradientsCtx) {
     skyGradientCache.clear();
+    shopGradientCache.clear();
     groundGradientCache.clear();
     buildingGradientCache.clear();
     lastGradientsCtx = ctx;
@@ -1664,6 +1666,22 @@ function getCachedSkyGradient(ctx: CanvasRenderingContext2D, zone: ZoneDefinitio
     grad.addColorStop(1, zone.skyColors[2]);
     ctx.restore();
     skyGradientCache.set(zone.id, grad);
+  }
+  return grad;
+}
+
+function getCachedShopGradient(ctx: CanvasRenderingContext2D): CanvasGradient {
+  clearGradientCaches(ctx);
+  let grad = shopGradientCache.get('shop');
+  if (!grad) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    grad.addColorStop(0, '#050515');
+    grad.addColorStop(0.5, '#0a0a28');
+    grad.addColorStop(1, '#12082a');
+    ctx.restore();
+    shopGradientCache.set('shop', grad);
   }
   return grad;
 }
@@ -3000,11 +3018,7 @@ function drawShop(ctx: CanvasRenderingContext2D, state: GameState) {
   const zone = getZone(state.level);
 
   // Background
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-  skyGrad.addColorStop(0, '#050515');
-  skyGrad.addColorStop(0.5, '#0a0a28');
-  skyGrad.addColorStop(1, '#12082a');
-  ctx.fillStyle = skyGrad;
+  ctx.fillStyle = getCachedShopGradient(ctx);
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   state.stars.forEach((star) => {
