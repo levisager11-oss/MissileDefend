@@ -4,22 +4,35 @@ A modern, feature-rich reimagining of the classic arcade game Missile Command, b
 
 ## 🎮 Game Description
 
-Defend your cities from relentless missile attacks across 5 distinct zones with increasing difficulty. Manage your economy, purchase upgrades, and deploy special weapons to survive the onslaught. Face off against powerful bosses every 5 levels and prestige to gain permanent bonuses.
+Defend your cities from relentless missile attacks across 5 distinct zones with increasing difficulty. **Missile Command - Zone Defense** combines classic arcade action with modern idle/incremental mechanics. Manage your economy in real-time using the **Industry** and **Research** sidebars to purchase passive income structures and powerful upgrades while defending against the onslaught. Face off against powerful bosses every 5 levels and ascend to earn Command Credits for permanent orbital bonuses.
 
 ## ✨ Features
 
 - **Zone Progression System**: Battle through 5 unique zones (Green Valley, Desert Outpost, Arctic Base, Volcanic Fortress, Space Station), each with distinct visual themes and hazards.
 - **Dynamic Hazards**: Encounter heat-seeking missiles, bombers, blizzards, decoy missiles, asteroids, and EMP enemies.
-- **Economy & Upgrades**: Earn credits by destroying missiles and building passive income structures (Solar Farms, Scrap Yards, Orbital Mines). Purchase upgrades for blast radius, missile speed, ammo capacity, and more.
+- **Economy & Industry**: Earn credits by destroying missiles and build passive income structures via the **Industry Sidebar**:
+  - **Solar Farm**: Harvests energy from the sun.
+  - **Scrap Yard**: Recycles debris into credits.
+  - **Munitions Factory**: Produces and sells ammo.
+  - **Orbital Mine**: Automated mining in orbit.
+  - **Defense Contract**: Government funding for defense.
+  - **AI Core**: High-frequency trading algorithms.
+- **Research & Upgrades**: Purchase upgrades via the **Research Sidebar** to improve your defenses in real-time:
+  - **Blast Radius**, **Missile Speed**, **Extra Ammo**
+  - **Chain Reaction**, **Armor Plating**, **Multi-Shot**
+  - **EMP Burst**, **Lucky Strike**, **Auto Turret**, **Shield Generator**
 - **Special Weapons**: Unlock and deploy powerful special weapons:
   - **Laser Beam**: Instantly destroys everything in its path.
   - **Missile Swarm**: Fires multiple missiles in a spread pattern.
   - **Area Mine**: Proximity mines that decimate groups of enemies.
 - **Boss Battles**: Challenge unique bosses (Mothership, Fortress, Swarm Queen) with special attack patterns every 5 levels.
-- **Orbital Command (Prestige System)**: Reset your run to earn Command Credits for permanent orbital upgrades across Offense, Defense, and Economy wings.
+- **Orbital Command (Prestige System)**: Reset your run to earn Command Credits for permanent upgrades across Offense, Defense, and Economy wings:
+  - **Offense**: Silo Expansion, Rapid Rearm
+  - **Defense**: Bunker Tech, Aegis Overclock
+  - **Economy**: Automated Salvage, Market Influence
 - **Achievements**: Unlock achievements for completing challenges.
 - **Save/Load System**: Export and import your game progress using save codes.
-- **Auto-Play Mode**: Unlockable AI assistant (Hint: Konami Code).
+- **Auto-Play Mode**: Unlockable AI assistant.
 
 ## 🛠️ Technologies Used
 
@@ -67,6 +80,10 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 - **0 / Esc**: Deselect Special Weapon.
 - **C**: Cancel Auto-Play Mode.
 - **Konami Code**: Activate Auto-Play Mode (↑ ↑ ↓ ↓ ← → ← → B A).
+
+### Debug / Cheats
+- **L**: Skip Level (Grants +5000 Credits)
+- **M**: Add +5000 Credits
 
 ## 💾 Save Codes
 
