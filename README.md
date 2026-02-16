@@ -8,15 +8,23 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 
 ## ✨ Features
 
-- **Zone Progression System**: Battle through 5 unique zones (Green Valley, Desert Outpost, Arctic Base, Volcanic Fortress, Space Station), each with distinct visual themes and hazards.
-- **Dynamic Hazards**: Encounter heat-seeking missiles, bombers, blizzards, decoy missiles, asteroids, and EMP enemies.
-- **Economy & Upgrades**: Earn credits by destroying missiles and building passive income structures (Solar Farms, Scrap Yards, Orbital Mines). Purchase upgrades for blast radius, missile speed, ammo capacity, and more.
+- **Three-Column Interface**: Manage your empire with a persistent layout: Industry (Buildings), Game View, and Research (Upgrades).
+- **Zone Progression System**: Battle through 5 unique zones, each with distinct visual themes and increasing difficulty:
+  1. **Green Valley**: Standard combat zone.
+  2. **Desert Outpost**: Heat-seeking missiles track your cities.
+  3. **Arctic Base**: Bombers drop payloads and blizzards reduce visibility.
+  4. **Volcanic Fortress**: Decoy missiles waste your ammo and eruptions shake the screen.
+  5. **Space Station**: Asteroids, EMP missiles, and all previous threats combined.
+- **Economy & Upgrades**: Earn credits by destroying missiles and building passive income structures (Solar Farms, Scrap Yards, Munitions Factories, Orbital Mines, Defense Contracts, AI Cores). Purchase upgrades like Blast Radius, Missile Velocity, Chain Reaction, Multi-Shot, EMP Burst, Auto Turret, Shield Generator, and City Repair.
 - **Special Weapons**: Unlock and deploy powerful special weapons:
   - **Laser Beam**: Instantly destroys everything in its path.
   - **Missile Swarm**: Fires multiple missiles in a spread pattern.
   - **Area Mine**: Proximity mines that decimate groups of enemies.
 - **Boss Battles**: Challenge unique bosses (Mothership, Fortress, Swarm Queen) with special attack patterns every 5 levels.
-- **Orbital Command (Prestige System)**: Reset your run to earn Command Credits for permanent orbital upgrades across Offense, Defense, and Economy wings.
+- **Orbital Command (Prestige System)**: Reset your run to earn Command Credits for permanent orbital upgrades across three wings:
+  - **Offense**: Silo Expansion, Rapid Rearm.
+  - **Defense**: Bunker Tech, Aegis Overclock.
+  - **Economy**: Automated Salvage, Market Influence.
 - **Achievements**: Unlock achievements for completing challenges.
 - **Save/Load System**: Export and import your game progress using save codes.
 - **Auto-Play Mode**: Unlockable AI assistant (Hint: Konami Code).
