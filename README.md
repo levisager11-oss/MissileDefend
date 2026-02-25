@@ -8,28 +8,62 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 
 ## ✨ Features
 
-- **Zone Progression System**: Battle through 5 unique zones (Green Valley, Desert Outpost, Arctic Base, Volcanic Fortress, Space Station), each with distinct visual themes and hazards.
-- **Dynamic Hazards**: Encounter heat-seeking missiles, bombers, blizzards, decoy missiles, asteroids, and EMP enemies.
-- **Economy & Upgrades**: Earn credits by destroying missiles and building passive income structures (Solar Farms, Scrap Yards, Orbital Mines). Purchase upgrades for blast radius, missile speed, ammo capacity, and more.
-- **Special Weapons**: Unlock and deploy powerful special weapons:
-  - **Laser Beam**: Instantly destroys everything in its path.
-  - **Missile Swarm**: Fires multiple missiles in a spread pattern.
-  - **Area Mine**: Proximity mines that decimate groups of enemies.
-- **Boss Battles**: Challenge unique bosses (Mothership, Fortress, Swarm Queen) with special attack patterns every 5 levels.
-- **Orbital Command (Prestige System)**: Reset your run to earn Command Credits for permanent orbital upgrades across Offense, Defense, and Economy wings.
-- **Achievements**: Unlock achievements for completing challenges.
-- **Save/Load System**: Export and import your game progress using save codes.
-- **Auto-Play Mode**: Unlockable AI assistant (Hint: Konami Code).
+### 🌍 Zone Progression System
+Battle through 5 unique zones, each with distinct visual themes and hazards:
+1.  **Green Valley (Levels 1-5)**: Standard combat zone.
+2.  **Desert Outpost (Levels 6-10)**: Heat-seeking missiles track your cities.
+3.  **Arctic Base (Levels 11-15)**: Bombers drop payloads and blizzards reduce visibility.
+4.  **Volcanic Fortress (Levels 16-20)**: Decoy missiles waste your ammo and eruptions shake the screen.
+5.  **Space Station (Levels 21+)**: Asteroids, EMP missiles that disable batteries, and all previous threats combined.
+
+### 🏭 Economy & Buildings
+Earn credits by destroying missiles and build passive income structures to fund your defense:
+-   **Solar Farm**: Harvests energy from the sun.
+-   **Scrap Yard**: Recycles debris into credits.
+-   **Munitions Factory**: Produces and sells ammo.
+-   **Orbital Mine**: Automated mining in orbit.
+-   **Defense Contract**: Government funding for defense.
+-   **AI Core**: High-frequency trading algorithms.
+
+### ⚡ Research & Upgrades
+Purchase upgrades to improve your defensive capabilities:
+-   **Battery Tech**: Blast Radius, Missile Speed, Extra Ammo, Multi Shot.
+-   **Defensive Tech**: Armor Plating (City Repair), Shield Generator, Auto Turret.
+-   **Special Tech**: Chain Reaction, EMP Burst, Lucky Strike (Crit Chance).
+-   **Weapon Tech**: Laser Weapon, Swarm Weapon, Area Mine.
+
+### 🚀 Special Weapons
+Unlock and deploy powerful special weapons (Charges replenish each level):
+-   **Laser Beam (Key: 1)**: Instantly destroys everything in its path.
+-   **Missile Swarm (Key: 2)**: Fires multiple missiles in a spread pattern.
+-   **Area Mine (Key: 3)**: Proximity mines that decimate groups of enemies.
+
+### 👑 Boss Battles
+Challenge unique bosses every 5 levels:
+-   **Mothership**: Fires salvos of missiles.
+-   **Fortress**: Rotating station with heavy firepower.
+-   **Swarm Queen**: Organic threat with unpredictable attacks.
+
+### ⭐ Orbital Command (Prestige System)
+Reset your run to earn Command Credits for permanent orbital upgrades:
+-   **Offense Wing**: Silo Expansion (+Max Ammo), Rapid Rearm (-Cooldowns).
+-   **Defense Wing**: Bunker Tech (+City HP), Aegis Overclock (+Shield Recharge).
+-   **Economy Wing**: Automated Salvage (+Kill Credits), Market Influence (-Shop Prices).
+
+### 🏆 Achievements & Secrets
+-   Unlock achievements for completing challenges.
+-   **Auto-Play Mode**: Unlockable AI assistant (Hint: Konami Code).
+-   **Save/Load System**: Export and import your game progress using save codes.
 
 ## 🛠️ Technologies Used
 
-- **React 19**: UI and game state management.
-- **Vite**: Fast build tool and development server.
-- **vite-plugin-singlefile**: Bundles the game into a single HTML file for easy distribution.
-- **Tailwind CSS 4**: Modern styling for UI components.
-- **TypeScript**: Type-safe code for game logic.
-- **HTML5 Canvas**: High-performance rendering for game graphics.
-- **Bun**: Fast JavaScript runtime used for running tests.
+-   **React 19**: UI and game state management.
+-   **Vite**: Fast build tool and development server.
+-   **vite-plugin-singlefile**: Bundles the game into a single HTML file for easy distribution.
+-   **Tailwind CSS 4**: Modern styling for UI components.
+-   **TypeScript**: Type-safe code for game logic.
+-   **HTML5 Canvas**: High-performance rendering for game graphics.
+-   **Bun**: Fast JavaScript runtime used for running tests.
 
 ## 🚀 How to Run
 
@@ -61,12 +95,12 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 
 ## 🕹️ Controls
 
-- **Mouse Movement**: Aim crosshair.
-- **Left Click**: Fire counter-missile at cursor location.
-- **Number Keys (1, 2, 3)**: Select Special Weapon (Laser, Swarm, Mine).
-- **0 / Esc**: Deselect Special Weapon.
-- **C**: Cancel Auto-Play Mode.
-- **Konami Code**: Activate Auto-Play Mode (↑ ↑ ↓ ↓ ← → ← → B A).
+-   **Mouse Movement**: Aim crosshair.
+-   **Left Click**: Fire counter-missile at cursor location.
+-   **Number Keys (1, 2, 3)**: Select Special Weapon (Laser, Swarm, Mine).
+-   **0 / Esc**: Deselect Special Weapon.
+-   **C**: Cancel Auto-Play Mode.
+-   **Konami Code**: Activate Auto-Play Mode (↑ ↑ ↓ ↓ ← → ← → B A).
 
 ## 💾 Save Codes
 
