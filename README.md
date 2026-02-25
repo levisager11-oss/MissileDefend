@@ -31,6 +31,14 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 - **HTML5 Canvas**: High-performance rendering for game graphics.
 - **Bun**: Fast JavaScript runtime used for running tests.
 
+## 📂 Project Structure
+
+- `src/App.tsx`: Main game logic, state management, and rendering loop.
+- `src/components/`: React UI components (e.g., Orbital Command).
+- `src/data/`: Static data definitions (Upgrades, Orbital Upgrades).
+- `src/utils/`: Utility functions and helpers.
+- `src/zones.ts`: Zone definitions and progression logic.
+
 ## 🚀 How to Run
 
 1.  **Clone the repository**:
@@ -51,6 +59,8 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 
 4.  **Run tests**:
     ```bash
+    npm test
+    # or
     bun test
     ```
 
