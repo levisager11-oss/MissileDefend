@@ -10,7 +10,8 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 
 - **Zone Progression System**: Battle through 5 unique zones (Green Valley, Desert Outpost, Arctic Base, Volcanic Fortress, Space Station), each with distinct visual themes and hazards.
 - **Dynamic Hazards**: Encounter heat-seeking missiles, bombers, blizzards, decoy missiles, asteroids, and EMP enemies.
-- **Economy & Upgrades**: Earn credits by destroying missiles and building passive income structures (Solar Farms, Scrap Yards, Orbital Mines). Purchase upgrades for blast radius, missile speed, ammo capacity, and more.
+- **Building System (Industry)**: Construct passive income buildings to finance your defense.
+- **Economy & Upgrades**: Earn credits by destroying missiles and building passive income structures. Purchase upgrades for blast radius, missile speed, ammo capacity, and more.
 - **Special Weapons**: Unlock and deploy powerful special weapons:
   - **Laser Beam**: Instantly destroys everything in its path.
   - **Missile Swarm**: Fires multiple missiles in a spread pattern.
@@ -21,6 +22,48 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 - **Save/Load System**: Export and import your game progress using save codes.
 - **Auto-Play Mode**: Unlockable AI assistant (Hint: Konami Code).
 
+## 🏗️ Buildings (Industry)
+
+Invest in buildings to generate **Credits Per Second (CPS)**.
+
+- **Solar Farm**: Harvests energy from the sun.
+- **Scrap Yard**: Recycles debris into credits.
+- **Munitions Factory**: Produces and sells ammo.
+- **Orbital Mine**: Automated mining in orbit.
+- **Defense Contract**: Government funding for defense.
+- **AI Core**: High-frequency trading algorithms.
+
+## ⚡ Upgrades (Research)
+
+Enhance your defensive capabilities in the Research lab.
+
+- **Blast Radius**: Larger counter-missile explosions.
+- **Missile Velocity**: Faster counter-missiles reach targets quicker.
+- **Ammo Cache**: +3 ammo per battery each wave.
+- **Chain Reaction**: Secondary explosions are larger.
+- **Lucky Strike**: Chance for 2x-5x bonus score on kills.
+- **Multi-Shot**: Fire extra missiles per click.
+- **EMP Burst**: Slow all missiles at wave start.
+- **Auto Turret**: Auto-fires at nearest threats periodically.
+- **Shield Generator**: Energy shields absorb hits on cities.
+- **City Repair**: Rebuild one destroyed city.
+
+## 🚀 Orbital Command (Prestige)
+
+Reset your run to earn Command Credits and unlock permanent upgrades.
+
+### Offense Wing
+- **Silo Expansion**: +2 Max Ammo per battery per level.
+- **Rapid Rearm**: -5% Special Weapon Cooldown per level.
+
+### Defense Wing
+- **Bunker Tech**: Cities can survive +1 hit (Global).
+- **Aegis Overclock**: +10% Shield Recharge Rate.
+
+### Economy Wing
+- **Automated Salvage**: +10% Credits from kills.
+- **Market Influence**: -5% Shop Prices.
+
 ## 🛠️ Technologies Used
 
 - **React 19**: UI and game state management.
@@ -30,6 +73,14 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 - **TypeScript**: Type-safe code for game logic.
 - **HTML5 Canvas**: High-performance rendering for game graphics.
 - **Bun**: Fast JavaScript runtime used for running tests.
+
+## 📂 Project Structure
+
+- `src/App.tsx`: Main game loop, state management, and rendering logic.
+- `src/zones.ts`: Definitions for game zones and hazards.
+- `src/data/`: Static data for upgrades (`upgrades.ts`, `orbitalUpgrades.ts`).
+- `src/components/`: React UI components (e.g., `OrbitalCommand.tsx`).
+- `src/utils/`: Helper functions.
 
 ## 🚀 How to Run
 
@@ -67,6 +118,10 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 - **0 / Esc**: Deselect Special Weapon.
 - **C**: Cancel Auto-Play Mode.
 - **Konami Code**: Activate Auto-Play Mode (↑ ↑ ↓ ↓ ← → ← → B A).
+
+### Debug Controls
+- **L**: Skip current level (Advance to next level).
+- **M**: Add 5000 Credits (Cheat money).
 
 ## 💾 Save Codes
 
