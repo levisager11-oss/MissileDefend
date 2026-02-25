@@ -21,6 +21,14 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 - **Save/Load System**: Export and import your game progress using save codes.
 - **Auto-Play Mode**: Unlockable AI assistant (Hint: Konami Code).
 
+## 🖥️ Game Interface
+
+The game features a persistent three-column layout designed for strategic management:
+
+- **Industry (Left Panel)**: Purchase and manage buildings (e.g., Solar Farms, Scrap Yards) to generate passive income.
+- **Defense Zone (Center Panel)**: The main battlefield where you intercept incoming missiles, protect your cities, and engage bosses.
+- **Research (Right Panel)**: Purchase upgrades to improve your defenses, missile speed, explosion radius, and unlock special weapons.
+
 ## 🛠️ Technologies Used
 
 - **React 19**: UI and game state management.
@@ -67,6 +75,11 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 - **0 / Esc**: Deselect Special Weapon.
 - **C**: Cancel Auto-Play Mode.
 - **Konami Code**: Activate Auto-Play Mode (↑ ↑ ↓ ↓ ← → ← → B A).
+
+### 🐛 Debug / Cheat Keys
+
+- **L**: Skip to the next boss level (e.g., Level 5, 10) and add credits.
+- **M**: Add 5,000 Credits instantly.
 
 ## 💾 Save Codes
 
