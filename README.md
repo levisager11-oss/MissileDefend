@@ -8,9 +8,28 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 
 ## ✨ Features
 
-- **Zone Progression System**: Battle through 5 unique zones (Green Valley, Desert Outpost, Arctic Base, Volcanic Fortress, Space Station), each with distinct visual themes and hazards.
-- **Dynamic Hazards**: Encounter heat-seeking missiles, bombers, blizzards, decoy missiles, asteroids, and EMP enemies.
-- **Economy & Upgrades**: Earn credits by destroying missiles and building passive income structures (Solar Farms, Scrap Yards, Orbital Mines). Purchase upgrades for blast radius, missile speed, ammo capacity, and more.
+- **Zone Progression System**: Battle through 5 unique zones, each with distinct visual themes and hazards:
+  - **Zone 1: Green Valley** - Standard combat zone.
+  - **Zone 2: Desert Outpost** - Heat-seeking missiles track your cities.
+  - **Zone 3: Arctic Base** - Bombers drop payloads and blizzards reduce visibility.
+  - **Zone 4: Volcanic Fortress** - Decoy missiles and screen-shaking eruptions.
+  - **Zone 5: Space Station** - Asteroid storms and EMP warheads.
+- **Dynamic Hazards**: Encounter heat-seeking missiles, bombers, blizzards, decoy missiles, asteroids, and EMP enemies that disable your batteries.
+- **Strategic UI Layout**:
+  - **Left Sidebar (Industry)**: Purchase and manage income-generating buildings.
+  - **Center (Command)**: The main battlefield where you defend your cities.
+  - **Right Sidebar (Research)**: Unlock and upgrade your defensive capabilities.
+- **Economy & Buildings**: Earn credits by destroying missiles and building passive income structures:
+  - **Solar Farm**: Basic energy harvesting.
+  - **Scrap Yard**: Recycles debris.
+  - **Munitions Factory**: Produces and sells ammo.
+  - **Orbital Mine**: Automated mining operations.
+  - **Defense Contract**: Government funding.
+  - **AI Core**: High-frequency trading algorithms.
+- **Extensive Upgrades**: Customize your defense with a wide range of technologies:
+  - **Offense**: Blast Radius, Missile Velocity, Multi-Shot, Chain Reaction.
+  - **Defense**: Shield Generator, Armor Plating (City Repair), EMP Burst.
+  - **Utility**: Extra Ammo, Auto Turret, Lucky Strike.
 - **Special Weapons**: Unlock and deploy powerful special weapons:
   - **Laser Beam**: Instantly destroys everything in its path.
   - **Missile Swarm**: Fires multiple missiles in a spread pattern.
@@ -51,6 +70,8 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 
 4.  **Run tests**:
     ```bash
+    npm test
+    # or
     bun test
     ```
 
@@ -68,13 +89,17 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 - **C**: Cancel Auto-Play Mode.
 - **Konami Code**: Activate Auto-Play Mode (↑ ↑ ↓ ↓ ← → ← → B A).
 
+### Debug / Development Controls
+- **L**: Skip to next level (useful for testing progression/bosses).
+- **M**: Add 5000 Credits (cheat).
+
 ## 💾 Save Codes
 
 Use these codes to jump start your game. Click on `[SAVE / LOAD]` in the bottom left corner and paste the code.
 
 **Level 1 Head Start (10,000 Credits)**
 ```
-eyJ2IjoxLCJzdGF0ZSI6eyJzY29yZSI6MTAwMDAsImxldmVsIjoxLCJjaXRpZXMiOlt7IngiOjQwLCJhbGl2ZSI6dHJ1ZX0seyJ4IjoxNjAsImFsaXZlIjp0cnVlfSx7IngiOjI4MCwiYWxpdmUiOnRydWV9LHsieCI6NjgwLCJhbGl2ZSI6dHJ1ZX0seyJ4Ijo4MDAsImFsaXZlIjp0cnVlfSx7IngiOjkyMCwiYWxpdmUiOnRydWV9XSwiYmF0dGVyaWVzIjpbeyJ4Ijo0MCwieSI6NTgwLCJhbW1vIjoxMCwibWF4QW1tbyI6MTAsImRpc2FibGVkIjowfSx7IngiOjQ4MCwieSI6NTgwLCJhbW1vIjoxMCwibWF4QW1tbyI6MTAsImRpc2FibGVkIjowfSx7IngiOjkyMCwieSI6NTgwLCJhbW1vIjoxMCwibWF4QW1tbyI6MTAsImRpc2FibGVkIjowfV0sImluY29taW5nTWlzc2lsZXMiOltdLCJjb3VudGVyTWlzc2lsZXMiOltdLCJleHBsb3Npb25zIjpbXSwicGFydGljbGVzIjpbXSwiYm9tYmVycyI6W10sImFzdGVyb2lkcyI6W10sImdhbWVPdmVyIjpmYWxzZSwicGhhc2UiOiJzaG9wIiwibGV2ZWxDb21wbGV0ZSI6ZmFsc2UsImxldmVsVHJhbnNpdGlvblRpbWVyIjowLCJtaXNzaWxlU3Bhd25UaW1lciI6NjAsIm1pc3NpbGVzU3Bhd25lZFRoaXNMZXZlbCI6MCwidG90YWxNaXNzaWxlc1RoaXNMZXZlbCI6MTAsImN1cnNvclgiOjQ4MCwiY3Vyc29yWSI6MzIwLCJzdGFycyI6W10sInNjcmVlblNoYWtlIjowLCJib251c1RleHQiOltdLCJ1cGdyYWRlcyI6eyJibGFzdFJhZGl1cyI6MCwibWlzc2lsZVNwZWVkIjowLCJleHRyYUFtbW8iOjAsImNoYWluUmVhY3Rpb24iOjAsImFybW9yUGxhdGluZyI6MCwibXVsdGlTaG90IjowLCJlbXBCdXJzdCI6MCwibHVja3lTdHJpa2UiOjAsImF1dG9UdXJyZXQiOjAsInNoaWVsZEdlbmVyYXRvciI6MCwibGFzZXJXZWFwb24iOjAsInN3YXJtV2VhcG9uIjowLCJtaW5lV2VhcG9uIjowfSwic2hvcEhvdmVyIjotMSwiYXV0b1R1cnJldFRpbWVyIjowLCJzaGllbGRIaXRzIjpbMCwwLDAsMCwwLDBdLCJlbXBBY3RpdmUiOjAsInRvdGFsU3BlbnQiOjAsImJsaXp6YXJkQWxwaGEiOjAsImJsaXp6YXJkUGFydGljbGVzIjpbXSwiZXJ1cHRpb25UaW1lciI6MCwiZXJ1cHRpb25BY3RpdmUiOjAsImFzdGVyb2lkU3Bhd25UaW1lciI6MCwiYm9tYmVyU3Bhd25UaW1lciI6MCwiem9uZUludHJvVGltZXIiOjAsInByZXZpb3VzWm9uZUlkIjowLCJoaWdoU2NvcmUiOjAsImF1dG9Nb2RlIjpmYWxzZSwiYm9zcyI6bnVsbCwiYm9zc0RlZmVhdGVkIjpmYWxzZSwiaXNCb3NzTGV2ZWwiOmZhbHNlLCJzcGVjaWFsV2VhcG9ucyI6W3sidHlwZSI6Imxhc2VyIiwiY2hhcmdlcyI6MCwibWF4Q2hhcmdlcyI6MCwiY29vbGRvd25UaW1lciI6MH0seyJ0eXBlIjoic3dhcm0iLCJjaGFyZ2VzIjowLCJtYXhDaGFyZ2VzIjowLCJjb29sZG93blRpbWVyIjowfSx7InR5cGUiOiJtaW5lIiwiY2hhcmdlcyI6MCwibWF4Q2hhcmdlcyI6MCwiY29vbGRvd25UaW1lciI6MH1dLCJzZWxlY3RlZFdlYXBvbiI6LTEsIm1pbmVzIjpbXSwibGFzZXJCZWFtcyI6W10sImNvbWJvQ291bnQiOjAsImNvbWJvVGltZXIiOjAsImNvbWJvTXVsdGlwbGllciI6MSwibWF4Q29tYm8iOjB9fQ==
+eyJ2IjoxLCJzdGF0ZSI6eyJzY29yZSI6MTAwMDAsImxldmVsIjoxLCJjaXRpZXMiOlt7IngiOjQwLCJhbGl2ZSI6dHJ1ZX0seyJ4IjoxNjAsImFsaXZlIjp0cnVlfSx7IngiOjI4MCwiYWxpdmUiOnRydWV9LHsieCI6NjgwLCJhbGl2ZSI6dHJ1ZX0seyJ4Ijo4MDAsImFsaXZlIjp0cnVlfSx7IngiOjkyMCwiYWxpdmUiOnRydWV9XSwiYmF0dGVyaWVzIjpbeyJ4Ijo0MCwieSI6NTgwLCJhbW1vIjoxMCwibWF4QW1tbyI6MTAsImRpc2FibGVkIjowfSx7IngiOjQ4MCwieSI6NTgwLCJhbW1vIjoxMCwibWF4QW1tbyI6MTAsImRpc2FibGVkIjowfSx7IngiOjkyMCwieSI6NTgwLCJhbW1vIjoxMCwibWF4QW1tbyI6MTAsImRpc2FibGVkIjowfV0sImluY29taW5nTWlzc2lsZXMiOltdLCJjb3VudGVyTWlzc2lsZXMiOltdLCJleHBsb3Npb25zIjpbXSwicGFydGljbGVzIjpbXSwiYm9tYmVycyI6W10sImFzdGVyb2lkcyI6W10sImdhbWVPdmVyIjpmYWxzZSwicGhhc2UiOiJzaG9wIiwibGV2ZWxDb21wbGV0ZSI6ZmFsc2UsImxldmVsVHJhbnNpdGlvblRpbWVyIjowLCJtaXNzaWxlU3Bhd25UaW1lciI6NjAsIm1pc3NpbGVzU3Bhd25lZFRoaXNMZXZlbCI6MCwidG90YWxNaXNzaWxlc1RoaXNMZXZlbCI6MTAsImN1cnNvclgiOjQ4MCwiY3Vyc29yWSI6MzIwLCJzdGFycyI6W10sInNjcmVlblNoYWtlIjowLCJib251c1RleHQiOltdLCJ1cGdyYWRlcyI6eyJibGFzdFJhZGl1cyI6MCwibWlzc2lsZVNwZWVkIjowLCJleHRyYUFtbW8iOjAsImNoYWluUmVhY3Rpb24iOjAsImFybW9yUGxhdGluZyI6MCwibXVsdGlTaG90IjowLCJlbXBCdXJzdCI6MCwibHVja3lTdHJpa2UiOjAsImF1dG9UdXJyZXQiOjAsInNoaWVsZEdlbmVyYXRvciI6MCwibGFzZXJXZWFwb24iOjAsInN3YXJtV2VhcG9uIjowLCJtaW5lV2VhcG9uIjowfSwic2hvcEhvdmVyIjotMSwiYXV0b1R1cnJldFRpbWVyIjowLCJzaGllbGRIaXRzIjpbMCwwLDAsMCwwLDBdLCJlbXBBY3RpdmUiOjAsInRvdGFsU3BlbnQiOjAsImJsaXp6YXJkQWxwaGEiOjAsImJsaXp6YXJkUGFydGljbGVzIjpbXSwiZXJ1cHRpb25UaW1lciI6MCwiZXJ1cHRpb25BY3RpdmUiOjAsImFzdGVyb2lkU3Bhd25UaW1lciI6MCwiYm9tYmVyU3Bhd25UaW1lciI6MCwiem9uZUludHJvVGltZXIiOjAsInByZXZpb3VzWm9uZUlkIjowLCJoaWdoU2NvcmUiOjAsImF1dG9Nb2RlIjpmYWxzZSwiYm9zcyI6bnVsbCwiYm9zc0RlZmVhdGVkIjpmYWxzZSwiaXNCb3NzTGV2ZWwiOmZhbHNlLCJzcGVjaWFsV2VhcG9ucyI6W3sidHlwZSI6Imxhc2VyIiwiY2hhcmdlcyI6MCwibWF4Q2hhcmdlcyI6MCwiY29vbGRvd25UaW1lciI6MH1seyJ0eXBlIjoic3dhcm0iLCJjaGFyZ2VzIjowLCJtYXhDaGFyZ2VzIjowLCJjb29sZG93blRpbWVyIjowfSx7InR5cGUiOiJtaW5lIiwiY2hhcmdlcyI6MCwibWF4Q2hhcmdlcyI6MCwiY29vbGRvd25UaW1lciI6MH1dLCJzZWxlY3RlZFdlYXBvbiI6LTEsIm1pbmVzIjpbXSwibGFzZXJCZWFtcyI6W10sImNvbWJvQ291bnQiOjAsImNvbWJvVGltZXIiOjAsImNvbWJvTXVsdGlwbGllciI6MSwibWF4Q29tYm8iOjB9fQ==
 ```
 
 **Level 5 Boss Fight Ready (Fully Loaded)**
