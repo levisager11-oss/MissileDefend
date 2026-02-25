@@ -10,13 +10,13 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 
 - **Zone Progression System**: Battle through 5 unique zones (Green Valley, Desert Outpost, Arctic Base, Volcanic Fortress, Space Station), each with distinct visual themes and hazards.
 - **Dynamic Hazards**: Encounter heat-seeking missiles, bombers, blizzards, decoy missiles, asteroids, and EMP enemies.
-- **Economy & Upgrades**: Earn credits by destroying missiles and building passive income structures (Solar Farms, Scrap Yards, Orbital Mines). Purchase upgrades for blast radius, missile speed, ammo capacity, and more.
+- **Economy & Upgrades**: Earn credits by destroying missiles and building passive income structures (Solar Farms, Scrap Yards, Munitions Factories, Orbital Mines, Defense Contracts, AI Cores). Purchase upgrades for blast radius, missile speed, ammo capacity, and more.
 - **Special Weapons**: Unlock and deploy powerful special weapons:
   - **Laser Beam**: Instantly destroys everything in its path.
   - **Missile Swarm**: Fires multiple missiles in a spread pattern.
   - **Area Mine**: Proximity mines that decimate groups of enemies.
 - **Boss Battles**: Challenge unique bosses (Mothership, Fortress, Swarm Queen) with special attack patterns every 5 levels.
-- **Orbital Command (Prestige System)**: Reset your run to earn Command Credits for permanent orbital upgrades across Offense, Defense, and Economy wings.
+- **Orbital Command (Prestige System)**: Reset your run to earn Command Credits for permanent orbital upgrades across Offense (Silo Expansion, Rapid Rearm), Defense (Bunker Tech, Aegis Overclock), and Economy (Automated Salvage, Market Influence) wings.
 - **Achievements**: Unlock achievements for completing challenges.
 - **Save/Load System**: Export and import your game progress using save codes.
 - **Auto-Play Mode**: Unlockable AI assistant (Hint: Konami Code).
@@ -67,6 +67,10 @@ Defend your cities from relentless missile attacks across 5 distinct zones with 
 - **0 / Esc**: Deselect Special Weapon.
 - **C**: Cancel Auto-Play Mode.
 - **Konami Code**: Activate Auto-Play Mode (↑ ↑ ↓ ↓ ← → ← → B A).
+
+### Debug Controls
+- **L**: Skip to Level 5 (Boss Fight).
+- **M**: Add 5,000 Credits.
 
 ## 💾 Save Codes
 
