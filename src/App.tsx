@@ -3,6 +3,7 @@ import { ZoneDefinition, ZONES, getZone, getZoneIndex } from './zones';
 import { Upgrades, UpgradeDefinition, UPGRADE_DEFS, getUpgradeCost } from './data/upgrades';
 import { OrbitalUpgradeDefinition, ORBITAL_UPGRADE_DEFS, getOrbitalUpgradeCost } from './data/orbitalUpgrades';
 import { OrbitalCommand } from './components/OrbitalCommand';
+import { generateSignature, verifySignature } from './utils/security';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 interface City {
@@ -316,13 +317,8 @@ function initPersistentStats(): PersistentStats {
   };
 }
 
-function loadStats(): PersistentStats {
+function migrateLegacyStats(parsed: any): PersistentStats {
   try {
-    const raw = localStorage.getItem(STATS_KEY);
-    if (!raw) return initPersistentStats();
-
-    const parsed = JSON.parse(raw);
-
     // MIGRATION: Convert old prestigePoints/Bonuses to commandCredits/OrbitalUpgrades
     if (parsed.prestigePoints !== undefined && parsed.commandCredits === undefined) {
       let migratedCredits = parsed.prestigePoints || 0;
@@ -366,11 +362,45 @@ function loadStats(): PersistentStats {
     const finalUpgrades = { ...defaults.orbitalUpgrades, ...(parsed.orbitalUpgrades || {}) };
 
     return { ...defaults, ...parsed, orbitalUpgrades: finalUpgrades };
+  } catch {
+    return initPersistentStats();
+  }
+}
+
+function loadStats(): PersistentStats {
+  try {
+    const raw = localStorage.getItem(STATS_KEY);
+    if (!raw) return initPersistentStats();
+
+    const parsed = JSON.parse(raw);
+
+    // Check for signed format
+    if (parsed.data && parsed.sig) {
+      if (verifySignature(parsed.data, parsed.sig)) {
+        return migrateLegacyStats(parsed.data);
+      } else {
+        console.warn('Tampered save detected. Resetting progress.');
+        return initPersistentStats();
+      }
+    }
+
+    // Legacy load (unsigned) - Migrate immediately
+    if (parsed.totalGames !== undefined || parsed.prestigePoints !== undefined) {
+      const migrated = migrateLegacyStats(parsed);
+      saveStats(migrated); // Save in new format
+      return migrated;
+    }
+
+    return initPersistentStats();
   } catch { return initPersistentStats(); }
 }
 
 function saveStats(stats: PersistentStats) {
-  try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch { /* noop */ }
+  try {
+    const signature = generateSignature(stats);
+    const wrapper = { data: stats, sig: signature };
+    localStorage.setItem(STATS_KEY, JSON.stringify(wrapper));
+  } catch { /* noop */ }
 }
 
 function checkAchievements(state: GameState, stats: PersistentStats): string[] {
