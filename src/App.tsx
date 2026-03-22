@@ -400,6 +400,13 @@ const BASE_EXPLOSION_RADIUS = 50;
 const EXPLOSION_GROW_SPEED = 1.5;
 const EXPLOSION_SHRINK_SPEED = 0.6;
 const BASE_AMMO = 10;
+// Konami hint hit area on title screen (centered near bottom)
+const KONAMI_HINT_CENTER_X = CANVAS_WIDTH / 2;
+const KONAMI_HINT_CENTER_Y = CANVAS_HEIGHT - 15;
+const KONAMI_HINT_HIT_X = KONAMI_HINT_CENTER_X - 100;
+const KONAMI_HINT_HIT_W = 200;
+const KONAMI_HINT_HIT_Y = KONAMI_HINT_CENTER_Y - 20;
+const KONAMI_HINT_HIT_H = 28;
 
 let nextId = 0;
 const getId = () => ++nextId;
@@ -3232,7 +3239,7 @@ function hexToRgb(hex: string): string {
 }
 
 // ─── Title Screen ───────────────────────────────────────────────────────
-function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState, stats?: PersistentStats) {
+function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState, stats?: PersistentStats, hintRevealed?: boolean) {
   ctx.fillStyle = getCachedSkyGradient(ctx, ZONES[0]);
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -3311,10 +3318,21 @@ function drawTitleScreen(ctx: CanvasRenderingContext2D, state: GameState, stats?
     ctx.fillText(`🏆 Achievements: ${unlocked}/${total}${prestige}`, CANVAS_WIDTH / 2, sY + 16);
   }
 
-  // Konami code hint - very subtle
-  ctx.fillStyle = '#222233';
+  // Konami code hint - redacted style, reveal on hover (desktop) or tap (mobile)
+  const isHintHovered = state.cursorX >= KONAMI_HINT_HIT_X && state.cursorX <= KONAMI_HINT_HIT_X + KONAMI_HINT_HIT_W &&
+    state.cursorY >= KONAMI_HINT_HIT_Y && state.cursorY <= KONAMI_HINT_HIT_Y + KONAMI_HINT_HIT_H;
+  const showHint = hintRevealed || isHintHovered;
   ctx.font = '10px monospace';
-  ctx.fillText('↑↑↓↓←→←→BA', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
+  ctx.textAlign = 'center';
+  if (showHint) {
+    ctx.fillStyle = '#aaaacc';
+    ctx.fillText('↑↑↓↓←→←→BA', KONAMI_HINT_CENTER_X, KONAMI_HINT_CENTER_Y);
+  } else {
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(KONAMI_HINT_HIT_X, KONAMI_HINT_HIT_Y, KONAMI_HINT_HIT_W, KONAMI_HINT_HIT_H);
+    ctx.fillStyle = '#222233';
+    ctx.fillText('↑↑↓↓←→←→BA', KONAMI_HINT_CENTER_X, KONAMI_HINT_CENTER_Y);
+  }
 
   // Zone preview
   ctx.font = '11px monospace';
@@ -3753,6 +3771,7 @@ export function App() {
   const [, setRenderTick] = useState(0);
   const autoPlayRef = useRef<AutoPlayState>(initAutoPlay());
   const konamiIndexRef = useRef(0);
+  const konamiHintRevealedRef = useRef(false);
   const [saveHash, setSaveHash] = useState('');
   const [loadHash, setLoadHash] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
@@ -3840,6 +3859,14 @@ export function App() {
       }
 
       if (state.phase === 'title') {
+        // Check for Konami hint tap (reveal/hide)
+        if (x >= KONAMI_HINT_HIT_X && x <= KONAMI_HINT_HIT_X + KONAMI_HINT_HIT_W &&
+            y >= KONAMI_HINT_HIT_Y && y <= KONAMI_HINT_HIT_Y + KONAMI_HINT_HIT_H) {
+          konamiHintRevealedRef.current = !konamiHintRevealedRef.current;
+          setRenderTick(t => t + 1);
+          return;
+        }
+
         // Check for orbital command click
         if (statsRef.current.commandCredits > 0 || statsRef.current.prestigeLevel > 0) {
           // Assume button is near stats area, let's put it specifically
@@ -4053,6 +4080,28 @@ export function App() {
       }
 
       gameStateRef.current.shopHover = hoveredIndex;
+    }
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = CANVAS_WIDTH / rect.width;
+    const scaleY = CANVAS_HEIGHT / rect.height;
+    const x = (touch.clientX - rect.left) * scaleX;
+    const y = (touch.clientY - rect.top) * scaleY;
+
+    const state = gameStateRef.current;
+    if (state.phase === 'title') {
+      if (x >= KONAMI_HINT_HIT_X && x <= KONAMI_HINT_HIT_X + KONAMI_HINT_HIT_W &&
+          y >= KONAMI_HINT_HIT_Y && y <= KONAMI_HINT_HIT_Y + KONAMI_HINT_HIT_H) {
+        e.preventDefault();
+        konamiHintRevealedRef.current = !konamiHintRevealedRef.current;
+        setRenderTick(t => t + 1);
+      }
     }
   }, []);
 
@@ -4383,7 +4432,7 @@ export function App() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           if (phase === 'title') {
-            drawTitleScreen(ctx, gameStateRef.current, statsRef.current);
+            drawTitleScreen(ctx, gameStateRef.current, statsRef.current, konamiHintRevealedRef.current);
           } else {
             // Draw game but NOT shop (shop is now React UI)
             if (phase !== 'shop') {
@@ -4487,6 +4536,7 @@ export function App() {
               className="max-w-full max-h-[calc(100vh-80px)] block"
               onClick={handleClick}
               onMouseMove={handleMouseMove}
+              onTouchStart={handleTouchStart}
               style={{ imageRendering: 'pixelated' }}
             />
 
