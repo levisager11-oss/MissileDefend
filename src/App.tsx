@@ -4083,26 +4083,30 @@ export function App() {
     }
   }, []);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const touch = e.touches[0];
-    if (!touch) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = CANVAS_WIDTH / rect.width;
-    const scaleY = CANVAS_HEIGHT / rect.height;
-    const x = (touch.clientX - rect.left) * scaleX;
-    const y = (touch.clientY - rect.top) * scaleY;
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = CANVAS_WIDTH / rect.width;
+      const scaleY = CANVAS_HEIGHT / rect.height;
+      const x = (touch.clientX - rect.left) * scaleX;
+      const y = (touch.clientY - rect.top) * scaleY;
 
-    const state = gameStateRef.current;
-    if (state.phase === 'title') {
-      if (x >= KONAMI_HINT_HIT_X && x <= KONAMI_HINT_HIT_X + KONAMI_HINT_HIT_W &&
-          y >= KONAMI_HINT_HIT_Y && y <= KONAMI_HINT_HIT_Y + KONAMI_HINT_HIT_H) {
-        e.preventDefault();
-        konamiHintRevealedRef.current = !konamiHintRevealedRef.current;
-        setRenderTick(t => t + 1);
+      const state = gameStateRef.current;
+      if (state.phase === 'title') {
+        if (x >= KONAMI_HINT_HIT_X && x <= KONAMI_HINT_HIT_X + KONAMI_HINT_HIT_W &&
+            y >= KONAMI_HINT_HIT_Y && y <= KONAMI_HINT_HIT_Y + KONAMI_HINT_HIT_H) {
+          e.preventDefault();
+          konamiHintRevealedRef.current = !konamiHintRevealedRef.current;
+          setRenderTick(t => t + 1);
+        }
       }
-    }
+    };
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    return () => canvas.removeEventListener('touchstart', onTouchStart);
   }, []);
 
   const handleSave = useCallback(() => {
@@ -4536,7 +4540,6 @@ export function App() {
               className="max-w-full max-h-[calc(100vh-80px)] block"
               onClick={handleClick}
               onMouseMove={handleMouseMove}
-              onTouchStart={handleTouchStart}
               style={{ imageRendering: 'pixelated' }}
             />
 
